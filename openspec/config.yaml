@@ -1,0 +1,37 @@
+schema: spec-driven
+
+context: |
+  Language: English
+  All artifacts must be written in English.
+  Keep OpenSpec structural headings and SHALL/MUST keywords in English.
+
+  Project: mded, a native hybrid markdown editor (Tauri 2 + CodeMirror 6 +
+  TypeScript, no UI framework). AGENTS.md is the source of truth for stack,
+  structure, commands and known pitfalls; read it before proposing changes.
+  Fidelity is non-negotiable: the file is saved exactly as typed, rendering is
+  view decoration only, and features that edit text change minimal characters.
+  Nothing outside src/platform/ imports @tauri-apps/*.
+  A change is done only when `pnpm check` passes; behavior/look is verified
+  with `pnpm e2e`; native features (menus, dialogs, Finder) need manual testing.
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always state what is out of scope
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing
