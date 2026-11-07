@@ -51,8 +51,38 @@ fn absolute_file(path: PathBuf) -> Option<String> {
     abs.is_file().then(|| abs.to_string_lossy().into_owned())
 }
 
+/// Turns off the macOS "smart" substitutions that WebKit would otherwise apply to
+/// what is typed in the editor (`--` → `—`, `"` → `“`, spelling auto-correction):
+/// they silently rewrite markdown syntax. WebKit reads these keys from the app's
+/// defaults and falls back to the system-wide setting only when a key is absent.
+///
+/// `registerDefaults` and not `setBool`: registered values live in memory and are
+/// never written to the user's preferences, and a value the user sets explicitly
+/// for this app still wins. Text replacement (the user's own shortcuts) and the
+/// spell-check underline are left alone on purpose.
+#[cfg(target_os = "macos")]
+fn disable_text_substitutions() {
+    use objc2_foundation::{NSDictionary, NSNumber, NSString, NSUserDefaults};
+
+    let keys = [
+        NSString::from_str("WebAutomaticQuoteSubstitutionEnabled"),
+        NSString::from_str("WebAutomaticDashSubstitutionEnabled"),
+        NSString::from_str("WebAutomaticSpellingCorrectionEnabled"),
+    ];
+    let key_refs = [&*keys[0], &*keys[1], &*keys[2]];
+    let off = [(); 3].map(|_| NSNumber::numberWithBool(false).into_super().into_super().into_super());
+    let defaults = NSDictionary::from_retained_objects(&key_refs, &off);
+    // SAFETY: the dictionary maps NSString keys to NSNumber values, which is what
+    // `registerDefaults:` expects.
+    unsafe { NSUserDefaults::standardUserDefaults().registerDefaults(&defaults) };
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Before the webview exists, so WebKit never sees the system setting
+    #[cfg(target_os = "macos")]
+    disable_text_substitutions();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())

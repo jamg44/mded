@@ -76,6 +76,7 @@ ROADMAP.md           what's next and what's not planned: check it before proposi
 - **Biome 2.x also formats markdown.** `.md` files are excluded in `biome.json`; don't include them again or it will rewrite the test documents.
 - **macOS delivers "Open With" files before the `Ready` event**, which is when Tauri runs `setup()`. State is registered with `.manage()` on the builder, not in `setup()`.
 - **Release builds use `panic = "abort"`:** a failing `unwrap()` closes the app with no message. No `unwrap` in system event callbacks.
+- **macOS smart substitutions:** WebKit applies the system's smart quotes, dashes and spelling correction to typed text (`--` → `—`, `"` → `“`) unless the app registers its `WebAutomatic…Enabled` defaults. That is done in `disable_text_substitutions()` in `lib.rs` and can't be tested from the browser (Chromium has no such substitutions): check it by hand in the installed app.
 - **Stuck text cursor:** when the mouse leaves the text quickly towards the native title bar, WebKit doesn't restore the arrow. The `body::before` strip in `styles.css` mitigates it.
 
 ## Conventions

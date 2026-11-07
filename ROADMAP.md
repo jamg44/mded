@@ -7,7 +7,6 @@ Ideas and bug reports are welcome as issues, but read *Not planned* first.
 ## Now
 
 - Reload from file changed on disk
-- Stop macOS autocorrect from changing typed text: smart dashes turn `--` into `—` and smart quotes turn `"` into `“`, which breaks markdown syntax. Keep spell checking.
 - Test writing UX
 
 ## Next
@@ -26,6 +25,8 @@ Ideas that fit the project, in no particular order.
 
 - A settings window (Cmd+,). Until then, preferences live in the *View* menu.
 - Reopen recent files
+- Spelling autocorrect done right (e.g. never inside code)
+- Spell-check underline (WebKit keeps continuous spell checking off unless the app enables it)
 - Frontmatter YAML (`---` at the top)
 - Decide on a UI framework (Svelte 5, as planned in AGENTS.md) before adding the file tree and the bars
 - Files and folders section

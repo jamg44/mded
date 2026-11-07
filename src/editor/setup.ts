@@ -78,7 +78,7 @@ export function editorExtensions(opts: EditorOptions): Extension[] {
     theme,
     EditorView.lineWrapping,
     placeholder('Write markdown…'),
-    EditorView.contentAttributes.of({ spellcheck: 'true', autocorrect: 'on', autocapitalize: 'on' }),
+    EditorView.contentAttributes.of({ spellcheck: 'true', autocorrect: 'off', autocapitalize: 'on' }),
     hybridMarkdown(opts),
     softBreaks.of(opts.joinSoftBreaks ? joinSoftBreaks : []),
     EditorView.updateListener.of((u) => {
