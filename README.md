@@ -78,7 +78,9 @@ In VS Code, **Cmd+Shift+B** starts the app.
 
 ## Contributing
 
-Issues and pull requests are welcome. Before you start, read [AGENTS.md](AGENTS.md): it is a guide for both humans and AI coding agents to the architecture, the conventions and a few non-obvious pitfalls. The one rule that is never broken: **the editor must not rewrite the user's markdown.**
+mded is a personal project that I use every day, and I develop it at my own pace. Bug reports and ideas are welcome as issues. If you want to contribute code, please open an issue first to discuss it: I may decline changes that don't fit where I want to take the project, and I can't promise quick reviews. You are always free to fork it — that's what the MIT license is for.
+
+Whether you contribute or fork, read [AGENTS.md](AGENTS.md) first: it is a guide for both humans and AI coding agents to the architecture, the conventions and a few non-obvious pitfalls. The one rule that is never broken: **the editor must not rewrite the user's markdown.**
 
 ## License
 
