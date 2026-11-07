@@ -42,6 +42,8 @@ Most "WYSIWYG" markdown editors parse your file into a document tree and write i
 
 mded is young and is developed **macOS-first**: it is used daily there. It builds for Windows and Linux, but those platforms are untested. There are no signed, prebuilt binaries yet, so for now you build it from source.
 
+What's coming next, and what isn't planned: see the [roadmap](ROADMAP.md).
+
 ## Getting started
 
 **Requirements:** [Node.js 24](https://nodejs.org), [pnpm](https://pnpm.io), [Rust](https://rustup.rs) (the exact version is pinned in `src-tauri/rust-toolchain.toml`) and, on macOS, the Xcode Command Line Tools (`xcode-select --install`). See the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for Windows and Linux.

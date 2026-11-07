@@ -54,6 +54,8 @@ src-tauri/
   capabilities/      frontend permissions: when using a new Tauri API, add its permission here
 e2e/                 Playwright tests
 examples/            test documents (Biome leaves them alone)
+openspec/            specs and change proposals (OpenSpec)
+ROADMAP.md           what's next and what's not planned: check it before proposing features
 ```
 
 **Nothing outside `src/platform/` imports `@tauri-apps/*`.** That way the same editor runs in a browser and can be tested without the native app.
