@@ -1,7 +1,7 @@
 # text-input Specification
 
 ## Purpose
-TBD - created by archiving change disable-text-substitutions. Update Purpose after archive.
+How typed input reaches the document: which automatic text transformations the editor allows or blocks while the user types, so that the file contains exactly what was typed.
 
 ## Requirements
 ### Requirement: No smart quote substitution
