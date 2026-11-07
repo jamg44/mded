@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mded</title>
+    <script>
+      // Apply theme and width before the first paint (avoids a flash of the wrong theme)
+      try {
+        const p = JSON.parse(localStorage.getItem('mded.prefs') || '{}');
+        document.documentElement.dataset.theme = p.theme || 'system';
+        document.documentElement.dataset.width = p.width || 'readable';
+      } catch {}
+    </script>
+  </head>
+  <body>
+    <main id="editor"></main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

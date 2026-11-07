@@ -1,0 +1,31 @@
+# Dependencies and build output
+node_modules
+dist
+dist-ssr
+src-tauri/target
+src-tauri/gen/schemas
+
+# Test output
+test-results
+playwright-report
+screenshots
+
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Local files
+*.local
+.env
+.env.*
+.DS_Store
+.claude/
+
+# Editors (shared VS Code tasks and extension recommendations are kept)
+.vscode/*
+!.vscode/extensions.json
+!.vscode/tasks.json
+.idea
+*.sw?
