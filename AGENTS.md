@@ -46,7 +46,10 @@ src/
     setup.ts         CodeMirror extensions and theme (EditorView.theme)
     hybrid.ts        hybrid mode: ViewPlugin, syntax tree → decorations
     softbreaks.ts    visually joins single line breaks inside a paragraph (StateField)
-    reload.ts        minimal replacement between the document and the new file content (reload keeps cursor, scroll and undo)
+    reload.ts        minimal replacement between the document and the new file content, line by line (reload keeps cursor, scroll and undo)
+    linediff.ts      pure line diff (Myers); a line includes its separator
+    merge.ts         three-way merge by lines: the other side's changes applied to the document (all or nothing)
+    incoming.ts      highlight of the lines that came from disk after a merge or reload (StateField)
   platform/
     types.ts         Platform interface: everything that depends on the environment
     tauri.ts         native implementation: menus, dialogs, invoke
@@ -76,6 +79,8 @@ ROADMAP.md           what's next and what's not planned: check it before proposi
 
 - **CodeMirror styles:** its base styles beat `styles.css` on specificity because they are injected later. Anything that must win over them (font, padding, cursor, selection) goes in `EditorView.theme` in `setup.ts`, without `!important`.
 - **Decorations that span line breaks** can't come from a `ViewPlugin`; they must come from a `StateField` (see `softbreaks.ts`).
+- **With soft line breaks joined, a paragraph's lines are one `.cm-line`** and CodeMirror only keeps the line decoration of the first one. `incoming.ts` decorates the first line of the group; do the same for any new per-line decoration.
+- **Don't dispatch from an update listener.** `onChange` runs inside the update, so `adopt()` (which `onDocChange` can call) defers its dispatch with `queueMicrotask` (`clearMerged` in `main.ts`).
 - **CodeMirror only renders what is visible.** In e2e tests, `.cm-line` `.first()` is not the document's first line once the view has scrolled. Use `{ hasText }` and retrying assertions (`toHaveText`, `expect.poll`).
 - **Biome 2.x also formats markdown.** `.md` files are excluded in `biome.json`; don't include them again or it will rewrite the test documents.
 - **Editing the file from outside:** `watch_file` watches the file's *parent directory* and filters by name. Editors, git and sync tools save by writing a temporary file and renaming it over the original, and a watch on the file itself keeps following the old, unlinked file and goes silent after the first such save. Watcher events are only a hint (they can be duplicated, or caused by our own write): `syncFromDisk()` in `main.ts` always compares the file's *content* with what the disk held when we last read or wrote it, never modification times.

@@ -1,5 +1,5 @@
 /**
- * The bar above the editor (file conflict, file deleted) and the transient notice.
+ * The bar above the editor (file conflict, file deleted, changes merged) and the transient notice.
  * Plain DOM: the elements live in index.html.
  *
  * None of this ever takes keyboard focus: someone typing must not be able to answer a
@@ -7,7 +7,7 @@
  * `mousedown` does not move the focus out of the editor either).
  */
 
-export type BarKind = 'conflict' | 'deleted';
+export type BarKind = 'conflict' | 'deleted' | 'merged';
 
 export interface ConflictActions {
   reload(): unknown;
@@ -68,6 +68,18 @@ export function createBar() {
     /** The file is gone. Informational: saving creates it again. */
     deleted(fileName: string) {
       show('deleted', `“${fileName}” no longer exists on disk. Saving will create it again.`);
+    },
+
+    /**
+     * Changes from disk were merged into the document and their lines are highlighted.
+     * Informational: it lasts as long as the highlight, which `clear` removes.
+     */
+    merged(clear: () => unknown) {
+      show(
+        'merged',
+        'Changes from disk were merged into your text and are highlighted. Review them, then save.',
+      );
+      actions.append(button('Clear highlight', clear));
     },
 
     hide() {

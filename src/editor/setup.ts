@@ -7,6 +7,7 @@ import { drawSelection, EditorView, keymap, placeholder } from '@codemirror/view
 import type { SyntaxNode } from '@lezer/common';
 import { tags as t } from '@lezer/highlight';
 import { type HybridOptions, hybridMarkdown } from './hybrid';
+import { incomingLines } from './incoming';
 import { joinSoftBreaks } from './softbreaks';
 
 // Colors for code blocks only; the markdown look comes from hybrid.ts
@@ -36,6 +37,15 @@ const theme = EditorView.theme({
   '.cm-cursor, .cm-dropCursor': { borderLeft: '2px solid var(--accent)' },
   '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground': {
     background: 'color-mix(in srgb, var(--accent) 22%, transparent)',
+  },
+  // Lines that came from disk (see incoming.ts). A box-shadow paints above the line's own
+  // background, so it also shows on code blocks, and it can be transitioned. A transition
+  // uses the style the element ends up with: the base rule fades the highlight out when the
+  // class goes away, and `none` on the highlighted line makes it appear at once.
+  '.cm-line': { transition: 'box-shadow 0.8s ease' },
+  '.cm-line.cm-incoming': {
+    transition: 'none',
+    boxShadow: 'inset 3px 0 0 var(--incoming-bar), inset 0 0 0 100vmax var(--incoming-bg)',
   },
   '.cm-line.cm-md-codeblock': { paddingLeft: '12px' },
   '.cm-line.cm-md-quote': { paddingLeft: '14px' },
@@ -81,6 +91,7 @@ export function editorExtensions(opts: EditorOptions): Extension[] {
     EditorView.contentAttributes.of({ spellcheck: 'true', autocorrect: 'off', autocapitalize: 'on' }),
     hybridMarkdown(opts),
     softBreaks.of(opts.joinSoftBreaks ? joinSoftBreaks : []),
+    incomingLines,
     EditorView.updateListener.of((u) => {
       if (u.docChanged) opts.onChange?.(u.state);
     }),

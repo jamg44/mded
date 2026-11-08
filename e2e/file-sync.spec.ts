@@ -54,6 +54,10 @@ const writes = (page: Page) => page.evaluate(() => (window as unknown as Win).__
 
 const alert = (page: Page) => page.getByRole('alert');
 const notice = (page: Page) => page.getByRole('status');
+/** Lines whose text came from disk (see src/editor/incoming.ts). */
+const incoming = (page: Page) => page.locator('.cm-line.cm-incoming');
+/** The informational bar that explains the highlight of merged lines. */
+const mergedBar = (page: Page) => page.locator('#bar[data-kind="merged"]');
 
 /** Types at the end of the title line, with real key presses (the cursor stays there afterwards). */
 async function typeAtEnd(page: Page, s: string) {
@@ -67,6 +71,10 @@ const save = (page: Page) => page.keyboard.press(`${mod}+s`);
 /** The example with something different in its title line. */
 const retitled = (original: string, suffix: string) =>
   original.replace('# Welcome to mded', `# Welcome to mded${suffix}`);
+
+/** The example with something different in a list item, far from the title line. */
+const elsewhere = (original: string, what = ', edited elsewhere') =>
+  original.replace('Second', `Second${what}`);
 
 test.describe('with the example open', () => {
   let original: string;
@@ -245,6 +253,251 @@ test.describe('with the example open', () => {
     });
   });
 
+  test.describe('changes on other lines are merged into unsaved text', () => {
+    test('are added with no conflict, keeping the text and the unsaved state', async ({ page }) => {
+      await typeAtEnd(page, ' mine');
+      const mine = await text(page);
+      await external(page, elsewhere(original));
+
+      expect(await text(page)).toBe(elsewhere(mine));
+      await expect(mergedBar(page)).toBeVisible();
+      await expect(mergedBar(page)).toContainText('merged into your text');
+      await expect(notice(page)).toBeHidden();
+      await expect(page).toHaveTitle(`• ${TITLE}`);
+
+      // The editor keeps the keyboard, with the cursor where it was
+      await page.keyboard.type('Z');
+      expect(await text(page)).toContain('# Welcome to mded mineZ\n');
+    });
+
+    test('keep the cursor in place when the change is above it', async ({ page }) => {
+      await page.locator('.cm-line', { hasText: 'A blockquote' }).click();
+      await page.keyboard.type('!');
+      const before = await head(page);
+      const added = 'Added by someone else.\n\n';
+      await external(page, original.replace('## Lists', `${added}## Lists`));
+      expect(await head(page)).toBe(before + added.length);
+    });
+
+    test('are not applied when both sides touched the same or neighbouring lines', async ({ page }) => {
+      await typeAtEnd(page, ' mine');
+      const mine = await text(page);
+
+      await external(page, retitled(original, ' theirs'));
+      await expect(alert(page)).toBeVisible();
+      expect(await text(page)).toBe(mine);
+      expect(await incoming(page).count()).toBe(0);
+
+      // The blank line right under the title is a neighbour of the user's change
+      await external(page, original.replace('mded\n\nmded shows', 'mded\nnext to it\nmded shows'));
+      await expect(alert(page)).toBeVisible();
+      expect(await text(page)).toBe(mine);
+    });
+
+    test('merge once when both sides made the same change', async ({ page }) => {
+      await typeAtEnd(page, ' same');
+      await external(page, elsewhere(retitled(original, ' same')));
+      expect(await text(page)).toBe(elsewhere(retitled(original, ' same')));
+      await expect(alert(page)).toBeHidden();
+      await expect(page).toHaveTitle(TITLE); // everything is on disk now
+    });
+
+    test('are undone on their own, leaving the user text and the unsaved state', async ({ page }) => {
+      await typeAtEnd(page, ' mine');
+      const mine = await text(page);
+      await external(page, elsewhere(original));
+      await expect(incoming(page)).toHaveCount(1);
+
+      await page.keyboard.press(`${mod}+z`);
+      expect(await text(page)).toBe(mine);
+      await expect(page).toHaveTitle(`• ${TITLE}`);
+      await expect(incoming(page)).toHaveCount(0);
+    });
+
+    test('are saved as they are: the next save writes exactly the editor text', async ({ page }) => {
+      await typeAtEnd(page, ' mine');
+      await external(page, elsewhere(original));
+      await save(page);
+      await expect(page).toHaveTitle(TITLE);
+      expect(await disk(page)).toBe(await text(page));
+      expect(await disk(page)).toBe(elsewhere(retitled(original, ' mine')));
+    });
+
+    test('a later change on disk that no longer touches the user lines resolves the bar', async ({
+      page,
+    }) => {
+      await typeAtEnd(page, ' mine');
+      const mine = await text(page);
+      await external(page, retitled(original, ' theirs'));
+      await expect(alert(page)).toBeVisible();
+
+      // The other program puts the title back and edits something else instead
+      await external(page, elsewhere(original));
+      await expect(mergedBar(page)).toBeVisible();
+      expect(await text(page)).toBe(elsewhere(mine));
+      await expect(page).toHaveTitle(`• ${TITLE}`);
+    });
+
+    test.describe('that a save finds', () => {
+      test('are merged, not written: the file keeps the other program content until the next save', async ({
+        page,
+      }) => {
+        await spyWrites(page);
+        await typeAtEnd(page, '!');
+        await external(page, elsewhere(original), false); // nobody told the editor
+        await save(page);
+
+        await expect(mergedBar(page)).toBeVisible();
+        expect(await disk(page)).toBe(elsewhere(original));
+        expect(await text(page)).toBe(elsewhere(retitled(original, '!')));
+        await expect(page).toHaveTitle(`• ${TITLE}`);
+        expect(await writes(page)).toHaveLength(0);
+
+        await save(page);
+        await expect(page).toHaveTitle(TITLE);
+        await expect(mergedBar(page)).toBeHidden();
+        expect(await writes(page)).toEqual([elsewhere(retitled(original, '!'))]);
+        expect(await disk(page)).toBe(await text(page));
+      });
+
+      test('still show the bar when they overlap', async ({ page }) => {
+        await typeAtEnd(page, '!');
+        await external(page, retitled(original, ' theirs'), false);
+        await save(page);
+
+        await expect(alert(page)).toBeVisible();
+        expect(await disk(page)).toBe(retitled(original, ' theirs'));
+        await expect(page).toHaveTitle(`• ${TITLE}`);
+      });
+    });
+  });
+
+  test.describe('lines loaded from disk are highlighted', () => {
+    test('after a merge they stay, and only they, until the document is saved', async ({ page }) => {
+      await typeAtEnd(page, ' mine');
+      await external(page, elsewhere(original));
+      await expect(incoming(page)).toHaveCount(1);
+      await expect(incoming(page)).toContainText('Second, edited elsewhere');
+
+      // Longer than a reload's highlight lasts, and typing elsewhere does not clear it
+      await page.waitForTimeout(2200);
+      await page.keyboard.type(' more');
+      await expect(incoming(page)).toHaveCount(1);
+
+      await save(page);
+      await expect(page).toHaveTitle(TITLE);
+      await expect(incoming(page)).toHaveCount(0);
+    });
+
+    test('accumulate over several merges', async ({ page }) => {
+      await typeAtEnd(page, ' mine');
+      await external(page, elsewhere(original));
+      const once = elsewhere(original);
+      await external(page, once.replace('Third', 'Third, too'));
+      await expect(incoming(page)).toHaveCount(2);
+    });
+
+    test('mark a line of a joined paragraph', async ({ page }) => {
+      // Join Paragraphs is the default: the three lines of the first paragraph are one visual line
+      await typeAtEnd(page, ' mine');
+      await external(page, original.replace('appear where', 'appear only where'));
+      await expect(incoming(page).filter({ hasText: 'mded shows your markdown' })).toHaveCount(1);
+    });
+
+    test('after an automatic reload they mark what changed and fade out by themselves', async ({ page }) => {
+      await external(page, elsewhere(original));
+      await expect(incoming(page)).toHaveCount(1);
+      await expect(incoming(page)).toContainText('Second, edited elsewhere');
+      await expect(alert(page)).toBeHidden();
+      await expect(incoming(page)).toHaveCount(0, { timeout: 5000 });
+      await expect(page).toHaveTitle(TITLE);
+    });
+
+    test('after Reload from disk they fade out too', async ({ page }) => {
+      await typeAtEnd(page, ' mine');
+      await external(page, retitled(original, ' theirs'));
+      await alert(page).getByRole('button', { name: 'Reload from disk' }).click();
+      await settled(page);
+      await expect(incoming(page)).toHaveCount(1);
+      await expect(alert(page)).toBeHidden();
+      await expect(incoming(page)).toHaveCount(0, { timeout: 5000 });
+    });
+
+    test('are not shown for lines that were only deleted', async ({ page }) => {
+      await typeAtEnd(page, ' mine');
+      await external(page, original.replace('3. Third\n', ''));
+      expect(await text(page)).not.toContain('3. Third');
+      await expect(incoming(page)).toHaveCount(0);
+      // Nothing to point at, so no bar: the notice says what happened
+      await expect(alert(page)).toBeHidden();
+      await expect(notice(page)).toHaveText('Merged changes from disk');
+    });
+
+    test('carry a tooltip saying they were merged', async ({ page }) => {
+      await typeAtEnd(page, ' mine');
+      await external(page, elsewhere(original));
+      await expect(incoming(page)).toHaveAttribute('title', 'Merged from disk');
+    });
+
+    test('carry a tooltip saying they were reloaded', async ({ page }) => {
+      await external(page, elsewhere(original));
+      await expect(incoming(page)).toHaveAttribute('title', 'Reloaded from disk');
+    });
+  });
+
+  test.describe('the bar that explains merged lines', () => {
+    test('Clear highlight removes the highlight and the bar, and leaves the text as it was', async ({
+      page,
+    }) => {
+      await typeAtEnd(page, ' mine');
+      await external(page, elsewhere(original));
+      const merged = await text(page);
+      await expect(incoming(page)).toHaveCount(1);
+
+      await mergedBar(page).getByRole('button', { name: 'Clear highlight' }).click();
+      await expect(incoming(page)).toHaveCount(0);
+      await expect(alert(page)).toBeHidden();
+      expect(await text(page)).toBe(merged);
+      await expect(page).toHaveTitle(`• ${TITLE}`);
+
+      // The click did not take the focus away from the editor
+      await page.keyboard.type('Z');
+      expect(await text(page)).toContain('# Welcome to mded mineZ\n');
+    });
+
+    test('goes away with the highlight when the merge is undone', async ({ page }) => {
+      await typeAtEnd(page, ' mine');
+      await external(page, elsewhere(original));
+      await expect(mergedBar(page)).toBeVisible();
+      await page.keyboard.press(`${mod}+z`);
+      await expect(incoming(page)).toHaveCount(0);
+      await expect(alert(page)).toBeHidden();
+    });
+
+    test('goes away with the highlight when the document is saved', async ({ page }) => {
+      await typeAtEnd(page, ' mine');
+      await external(page, elsewhere(original));
+      await expect(mergedBar(page)).toBeVisible();
+      await save(page);
+      await expect(page).toHaveTitle(TITLE);
+      await expect(alert(page)).toBeHidden();
+    });
+
+    test('gives way to a conflict, and comes back after Keep mine', async ({ page }) => {
+      await typeAtEnd(page, ' mine');
+      await external(page, elsewhere(original));
+      await expect(mergedBar(page)).toBeVisible();
+
+      await external(page, retitled(elsewhere(original), ' theirs'));
+      await expect(alert(page)).toHaveAttribute('data-kind', 'conflict');
+
+      await alert(page).getByRole('button', { name: 'Keep mine' }).click();
+      await settled(page);
+      await expect(mergedBar(page)).toBeVisible();
+      await expect(incoming(page)).toHaveCount(1);
+    });
+  });
+
   test.describe('saving', () => {
     test('does not overwrite a change the editor was never told about', async ({ page }) => {
       await typeAtEnd(page, '!');
@@ -389,6 +642,30 @@ test.describe('line endings', () => {
     await save(page);
     await expect.poll(() => writes(page)).toEqual([converted]);
   });
+});
+
+test.describe('look of the lines loaded from disk', () => {
+  for (const scheme of ['light', 'dark'] as const) {
+    test(`merged lines in a paragraph and in a code block, ${scheme}`, async ({ page }) => {
+      await page.setViewportSize({ width: 1100, height: 1500 });
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.goto('/');
+      await expect(page).toHaveTitle(TITLE);
+      const original = await text(page);
+
+      await typeAtEnd(page, ' mine');
+      await external(
+        page,
+        original
+          .replace('appear where', 'appear only where')
+          .replace('Hello, $' + '{name}', 'Goodbye, $' + '{name}'),
+      );
+      await expect(incoming(page)).toHaveCount(2);
+      await expect(incoming(page).filter({ hasText: 'Goodbye' })).toHaveCount(1);
+      await expect(mergedBar(page)).toBeVisible();
+      await page.screenshot({ path: `screenshots/file-incoming-${scheme}.png` });
+    });
+  }
 });
 
 test.describe('look of the bar and the notice', () => {

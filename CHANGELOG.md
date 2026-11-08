@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Changes made elsewhere in the file are merged for you.** If another program changes the open file while you have unsaved changes, mded no longer makes you pick one version: when the changes are on different lines it adds theirs to your text, keeps yours exactly as typed, and tells you. Cmd+Z takes the merged changes away and leaves your own.
+- **You can see what came in from disk.** The lines that were merged are highlighted until you save, so you can review them, and a bar at the top explains the highlight. *Clear highlight* removes it when you are done reviewing. Resting the pointer on a highlighted line also says where it came from. After a reload, the changed lines are highlighted briefly and fade out.
+
+### Changed
+
+- **The warning bar appears only when both sides changed the same lines, or lines next to each other.** In that case nothing is merged and you still choose between *Reload from disk* and *Keep mine*.
+- **Saving when the file changed in a way that can be merged** merges it and asks you to save again, instead of stopping with the bar. It still never writes a version of the file you have not seen.
+
 ## [0.2.0] - 2026-11-08
 
 ### Added

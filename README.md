@@ -35,7 +35,7 @@ Most "WYSIWYG" markdown editors parse your file into a document tree and write i
 - **Reflowed paragraphs** — hard-wrapped lines read as one paragraph, as any renderer would show them, while the file keeps its line breaks. Switchable in *View → Line Breaks*.
 - **Cmd+click** on a link opens it in your browser.
 - **Light, dark or system theme**, and a choice of text width: *Readable*, *Wide* or *Full*.
-- **Safe next to other programs** — if another program changes the open file (another editor, git, a sync client), mded reloads it while you look at it. If you have unsaved changes it shows a warning bar and lets you choose instead of guessing, and saving never overwrites a version of the file you have not seen.
+- **Safe next to other programs** — if another program changes the open file (another editor, git, a sync client, an AI agent), mded reloads it while you look at it. If you have unsaved changes, it merges the changes made on other lines into your text and highlights them until you save, with a bar that explains what happened; only when both sides touched the same lines does it show a warning bar and let you choose. Saving never overwrites a version of the file you have not seen.
 - **Plays well with macOS**: shows up in Finder's *Open With*, accepts files dropped on the window, reopens the last file you were editing, and warns before discarding unsaved changes.
 - **Small and fast** — about 5 MB, using the system's WebKit instead of bundling a browser.
 

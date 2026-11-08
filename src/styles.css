@@ -20,6 +20,11 @@
   --info-bg: #e8f1fd;
   --info-border: #a9c7ef;
   --info-text: #1d4580;
+  --incoming-bg: rgba(22, 163, 74, 0.1);
+  --incoming-bar: #16a34a;
+  --merged-bg: #e6f6ec;
+  --merged-border: #9ad3ad;
+  --merged-text: #14532d;
   color-scheme: light;
 }
 
@@ -45,6 +50,11 @@
     --info-bg: #1e2b40;
     --info-border: #3f5a86;
     --info-text: #b3cdf6;
+    --incoming-bg: rgba(134, 211, 155, 0.12);
+    --incoming-bar: #86d39b;
+    --merged-bg: #183024;
+    --merged-border: #2f6b45;
+    --merged-text: #b7e4c7;
     color-scheme: dark;
   }
 }
@@ -70,6 +80,11 @@
   --info-bg: #1e2b40;
   --info-border: #3f5a86;
   --info-text: #b3cdf6;
+  --incoming-bg: rgba(134, 211, 155, 0.12);
+  --incoming-bar: #86d39b;
+  --merged-bg: #183024;
+  --merged-border: #2f6b45;
+  --merged-text: #b7e4c7;
   color-scheme: dark;
 }
 
@@ -136,10 +151,27 @@ body {
   color: var(--info-text);
   border-bottom: 1px solid var(--info-border);
 }
+/* Green like the lines it explains: what came in from disk, as added lines in a diff */
+.bar[data-kind="merged"] {
+  background: var(--merged-bg);
+  color: var(--merged-text);
+  border-bottom: 1px solid var(--merged-border);
+}
 .bar[data-kind="conflict"] .bar-message::before {
   content: "⚠";
   margin-right: 8px;
   font-weight: 700;
+}
+/* A sample of the highlight, so the bar reads as the key to the marked lines */
+.bar[data-kind="merged"] .bar-message::before {
+  content: "";
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 8px;
+  vertical-align: -1px;
+  background: var(--incoming-bg);
+  border-left: 3px solid var(--incoming-bar);
 }
 .bar-actions {
   display: inline-flex;

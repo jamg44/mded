@@ -2,6 +2,8 @@ import { redo, undo } from '@codemirror/commands';
 import type { Text } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { createBar } from './bar';
+import { dropIncoming, hasIncoming } from './editor/incoming';
+import { mergeChanges } from './editor/merge';
 import { reloadTransaction } from './editor/reload';
 import { createState, setJoinSoftBreaks } from './editor/setup';
 import { basename, resolveRelative } from './paths';
@@ -94,9 +96,32 @@ function onDocChange() {
   updateTitle();
   // The user edited the document until it is the file on disk: nothing left to resolve
   if (external !== null && view.state.sliceDoc() === external) adopt(external);
+  // The merged text is gone (undo): so is its highlight, and the bar that explains it
+  else if (bar.kind === 'merged' && !hasIncoming(view.state, 'persistent')) bar.hide();
 }
 
 // ---------- Keeping the document and the file on disk consistent ----------
+
+/**
+ * Nothing the document holds is waiting for review any more: it is the file on disk.
+ * Deferred because `adopt` can run inside an editor update, where dispatching is not allowed.
+ */
+const clearMerged = () => queueMicrotask(() => dropIncoming(view, 'persistent'));
+
+/** Bar button: the user has looked at the merged lines and wants them plain again. */
+function clearHighlight() {
+  dropIncoming(view, 'persistent');
+  bar.hide();
+}
+
+/**
+ * The bar that explains the highlight of merged lines lives as long as the highlight. Called
+ * after decisions that leave no other bar up: the conflict and deleted bars take precedence.
+ */
+function showMerged() {
+  if (hasIncoming(view.state, 'persistent')) bar.merged(clearHighlight);
+  else bar.hide();
+}
 
 /** The document is now what the file contains. */
 function adopt(content: string) {
@@ -105,6 +130,7 @@ function adopt(content: string) {
   missing = false;
   external = null;
   bar.hide();
+  clearMerged();
   updateTitle();
 }
 
@@ -136,17 +162,53 @@ function showDeleted() {
 }
 
 /**
+ * The document has unsaved changes and the file changed on disk: add what the other program
+ * changed to the document, unless both touched the same lines. `disk` is the common
+ * ancestor, and it stays the same while the conflict bar is up, so a later change on disk
+ * is tried against it again.
+ */
+function mergeFromDisk(content: string, fromSave: boolean) {
+  // Without a baseline (the file had been deleted) there is nothing to merge against
+  const merge = disk === null ? 'conflict' : mergeChanges(view.state, disk, content);
+  if (merge === 'conflict') {
+    showConflict(content);
+    return;
+  }
+  // Before dispatching, so the title is right throughout: what is unsaved is now only the user's part
+  saved = view.state.toText(content);
+  external = null;
+  if (merge) view.dispatch(merge);
+  if (view.state.sliceDoc() === content) {
+    // Both sides together are exactly the file: nothing is left to review or to save
+    adopt(content);
+    bar.notice('Merged changes from disk');
+    return;
+  }
+  disk = content;
+  updateTitle();
+  // A save that finds the file changed does not write the combination: it has not been seen.
+  // The bar asks to review and save; with nothing highlighted (the merge only deleted lines,
+  // or the document already had it all) a notice says it instead
+  showMerged();
+  if (!hasIncoming(view.state, 'persistent')) {
+    if (fromSave) bar.notice('Merged changes from disk. Review and save again.');
+    else if (merge) bar.notice('Merged changes from disk');
+  }
+}
+
+/**
  * Decides what to do with what is on disk now (null = the file is gone). Always called
  * right after the read that produced `content`, so the editor state it looks at is current.
+ * `fromSave`: it was found by a save, which then does not write.
  */
-function applyDisk(content: string | null) {
+function applyDisk(content: string | null, fromSave = false) {
   if (content === null) {
     if (!missing) showDeleted();
   } else if (content === disk) {
     // Same as the baseline: no external change (or it was undone by whoever made it)
     if (bar.kind === 'conflict') {
       external = null;
-      bar.hide();
+      showMerged();
     }
   } else if (view.state.sliceDoc() === content) {
     adopt(content);
@@ -154,7 +216,7 @@ function applyDisk(content: string | null) {
     reloadInto(content);
     bar.notice('Reloaded from disk');
   } else {
-    showConflict(content);
+    mergeFromDisk(content, fromSave);
   }
 }
 
@@ -215,7 +277,7 @@ function keepMine() {
     else {
       disk = content;
       external = null;
-      bar.hide();
+      showMerged();
     }
   });
 }
@@ -251,7 +313,7 @@ function writeTo(p: string): Promise<boolean> {
         // gone is fine: writing creates it again
         const current = await platform.readFileIfExists(p);
         if (current !== null && current !== disk) {
-          applyDisk(current);
+          applyDisk(current, true);
           return !isDirty();
         }
       }
@@ -265,6 +327,7 @@ function writeTo(p: string): Promise<boolean> {
       missing = false;
       external = null;
       bar.hide();
+      clearMerged();
       prefs = savePrefs({ lastFile: p });
       lastTitle = '';
       updateTitle();

@@ -109,6 +109,30 @@ describe('reloadTransaction', () => {
     expect(next.selection.main.to).toBe(7);
   });
 
+  it('keeps a cursor between two distant changes exactly where it was', () => {
+    const long = `${doc}\nThird paragraph.\n`;
+    const at = long.indexOf('Second') + 3; // inside the unchanged paragraph in between
+    const state = createState(long, opts).update({ selection: { anchor: at } }).state;
+    const content = long.replace('# Title', '# A longer title').replace('Third', 'Final');
+    const next = reload(state, content);
+    expect(next.sliceDoc()).toBe(content);
+    const head = next.selection.main.head;
+    expect(next.sliceDoc(head - 3, head + 3)).toBe('Second');
+  });
+
+  it('replaces only the lines that differ', () => {
+    const long = `${doc}\nThird paragraph.\n`;
+    const tr = reloadTransaction(
+      createState(long, opts),
+      long.replace('Title', 'Heading').replace('Third', 'Final'),
+    );
+    if (tr === null || tr === 'rebuild') throw new Error('expected a transaction');
+    const touched: string[] = [];
+    tr.changes.iterChanges((from, to) => touched.push(long.slice(from, to)));
+    // Two small replacements, not one that spans the paragraphs in between
+    expect(touched).toEqual(['Title', 'Third']);
+  });
+
   it('changes the document to exactly the new content', () => {
     const content = doc.replace('First', 'Changed');
     expect(reload(createState(doc, opts), content).sliceDoc()).toBe(content);
