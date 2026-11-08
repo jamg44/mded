@@ -14,7 +14,12 @@
     </script>
   </head>
   <body>
+    <div id="bar" class="bar" role="alert" hidden>
+      <span id="bar-message" class="bar-message"></span>
+      <span id="bar-actions" class="bar-actions"></span>
+    </div>
     <main id="editor"></main>
+    <div id="notice" class="notice" role="status" hidden></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

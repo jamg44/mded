@@ -14,6 +14,12 @@
   --tok-number: #b45309;
   --tok-function: #1d4ed8;
   --tok-type: #0e7490;
+  --warn-bg: #fff1c2;
+  --warn-border: #d9a406;
+  --warn-text: #5b4200;
+  --info-bg: #e8f1fd;
+  --info-border: #a9c7ef;
+  --info-text: #1d4580;
   color-scheme: light;
 }
 
@@ -33,6 +39,12 @@
     --tok-number: #f0b36a;
     --tok-function: #8ab4ff;
     --tok-type: #67d3e0;
+    --warn-bg: #43330c;
+    --warn-border: #b98a12;
+    --warn-text: #f6dc95;
+    --info-bg: #1e2b40;
+    --info-border: #3f5a86;
+    --info-text: #b3cdf6;
     color-scheme: dark;
   }
 }
@@ -52,6 +64,12 @@
   --tok-number: #f0b36a;
   --tok-function: #8ab4ff;
   --tok-type: #67d3e0;
+  --warn-bg: #43330c;
+  --warn-border: #b98a12;
+  --warn-text: #f6dc95;
+  --info-bg: #1e2b40;
+  --info-border: #3f5a86;
+  --info-text: #b3cdf6;
   color-scheme: dark;
 }
 
@@ -77,9 +95,84 @@ body {
 body {
   background: var(--bg);
   color: var(--text);
+  /* The bar above the editor takes space instead of covering the first lines */
+  display: flex;
+  flex-direction: column;
 }
 #editor {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ---------- File bar and notice (see bar.ts) ---------- */
+.bar,
+.notice {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  padding: 8px 16px;
+  cursor: default;
+  /* Above the strip of body::before, which would swallow the clicks */
+  position: relative;
+  z-index: 11;
+}
+.bar[hidden],
+.notice[hidden] {
+  display: none;
+}
+.bar[data-kind="conflict"] {
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  border-bottom: 2px solid var(--warn-border);
+}
+.bar[data-kind="deleted"] {
+  background: var(--info-bg);
+  color: var(--info-text);
+  border-bottom: 1px solid var(--info-border);
+}
+.bar[data-kind="conflict"] .bar-message::before {
+  content: "⚠";
+  margin-right: 8px;
+  font-weight: 700;
+}
+.bar-actions {
+  display: inline-flex;
+  gap: 8px;
+}
+.bar button {
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  padding: 2px 10px;
+  cursor: pointer;
+}
+.bar button:hover {
+  background: color-mix(in srgb, currentColor 15%, transparent);
+}
+.notice {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 20;
+  padding: 6px 12px;
+  color: var(--muted);
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+.notice.out {
+  opacity: 0;
 }
 
 /* ---------- CodeMirror ---------- */

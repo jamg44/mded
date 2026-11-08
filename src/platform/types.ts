@@ -21,7 +21,22 @@ export interface Actions {
 export interface Platform {
   readonly name: 'tauri' | 'web';
   readFile(path: string): Promise<string>;
+  /**
+   * Like `readFile`, but null if the file does not exist. Any other failure (permissions,
+   * not UTF-8…) still throws: an unreadable file must not look like a deleted one.
+   */
+  readFileIfExists(path: string): Promise<string | null>;
   writeFile(path: string, contents: string): Promise<void>;
+  /**
+   * Watches the file for changes made by other programs, replacing the previous watch
+   * (null = stop). Failing to watch is not fatal: the checks on focus and on save remain.
+   */
+  watchFile(path: string | null): Promise<void>;
+  /**
+   * `handler` runs with the watched file's path when it may have changed. It is only a hint
+   * (it can fire for our own writes or for nothing): the caller compares the content.
+   */
+  onFileChanged(handler: (path: string) => void): Promise<void>;
   /** Open dialog. null = cancelled. */
   pickOpen(): Promise<string | null>;
   /** Save dialog. null = cancelled. */

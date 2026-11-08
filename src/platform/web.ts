@@ -23,20 +23,59 @@ function pickLocalFile(): Promise<string | null> {
   });
 }
 
-export const webPlatform: Platform & { files: Map<string, string> } = {
+/** Files deleted from the in-memory disk: without this, a read would fetch them again from the dev server. */
+const deleted = new Set<string>();
+let watched: string | null = null;
+let changeHandler: ((path: string) => void) | null = null;
+
+/** null = the file does not exist. */
+async function readIfExists(path: string): Promise<string | null> {
+  if (deleted.has(path)) return null;
+  const cached = files.get(path);
+  if (cached !== undefined) return cached;
+  const res = await fetch(path);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Could not read ${path}: ${res.status}`);
+  const text = await res.text();
+  files.set(path, text);
+  return text;
+}
+
+export const webPlatform: Platform & {
+  files: Map<string, string>;
+  simulateExternalChange(path: string, contents: string | null, notify?: boolean): void;
+} = {
   name: 'web',
   files,
   async readFile(path) {
-    const cached = files.get(path);
-    if (cached !== undefined) return cached;
-    const res = await fetch(path);
-    if (!res.ok) throw new Error(`Could not read ${path}: ${res.status}`);
-    const text = await res.text();
-    files.set(path, text);
+    const text = await readIfExists(path);
+    if (text === null) throw new Error(`Could not read ${path}: not found`);
     return text;
   },
+  readFileIfExists: readIfExists,
   async writeFile(path, contents) {
+    deleted.delete(path);
     files.set(path, contents);
+  },
+  async watchFile(path) {
+    watched = path;
+  },
+  async onFileChanged(handler) {
+    changeHandler = handler;
+  },
+  /**
+   * For the e2e tests: another program writes (or deletes, with null) a file. `notify: false`
+   * is a change the watcher missed, which only the focus and save checks can catch.
+   */
+  simulateExternalChange(path, contents, notify = true) {
+    if (contents === null) {
+      files.delete(path);
+      deleted.add(path);
+    } else {
+      deleted.delete(path);
+      files.set(path, contents);
+    }
+    if (notify && path === watched) changeHandler?.(path);
   },
   pickOpen: pickLocalFile,
   async pickSave(defaultName) {

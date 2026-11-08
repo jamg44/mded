@@ -123,6 +123,7 @@ async function installMenu(a: Actions, prefs: Prefs) {
 export const tauriPlatform: Platform = {
   name: 'tauri',
   readFile: (path) => invoke<string>('read_file', { path }),
+  readFileIfExists: (path) => invoke<string | null>('read_file_if_exists', { path }),
   writeFile: (path, contents) => invoke('write_file', { path, contents }),
   async pickOpen() {
     const p = await open({ multiple: false, directory: false, filters: FILTERS });
@@ -153,4 +154,8 @@ export const tauriPlatform: Platform = {
     await listen<string[]>('open-files', (e) => handler(e.payload));
   },
   initialFiles: () => invoke<string[]>('initial_files'),
+  watchFile: (path) => invoke('watch_file', { path }),
+  async onFileChanged(handler) {
+    await listen<string>('file-changed', (e) => handler(e.payload));
+  },
 };

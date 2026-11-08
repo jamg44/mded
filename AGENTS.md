@@ -31,25 +31,28 @@ A native markdown editor with a **hybrid mode**, in the style of Typora or Obsid
 | `pnpm e2e` | Playwright tests against `pnpm web`. Saves screenshots to `screenshots/` |
 | `pnpm fix` | Formats and applies Biome fixes |
 | `cd src-tauri && cargo clippy` | Rust lint (no warnings) |
+| `cd src-tauri && cargo test` | Rust tests: the file watcher against the real filesystem (about 5 s) |
 
 ## Structure
 
 ```
 src/
-  main.ts            document state (path, unsaved changes) and actions
+  main.ts            document state (path, unsaved changes, what the disk held) and actions; keeps the file and the editor in sync
   prefs.ts           preferences (theme, width, line breaks, last file) in localStorage
   paths.ts           path helpers without Node
-  styles.css         color tokens (light/dark), hybrid mode styles
+  bar.ts             the bar above the editor (file conflict, file deleted) and the "Reloaded from disk" notice
+  styles.css         color tokens (light/dark), hybrid mode styles, bar and notice
   editor/
     setup.ts         CodeMirror extensions and theme (EditorView.theme)
     hybrid.ts        hybrid mode: ViewPlugin, syntax tree → decorations
     softbreaks.ts    visually joins single line breaks inside a paragraph (StateField)
+    reload.ts        minimal replacement between the document and the new file content (reload keeps cursor, scroll and undo)
   platform/
     types.ts         Platform interface: everything that depends on the environment
     tauri.ts         native implementation: menus, dialogs, invoke
     web.ts           browser implementation with in-memory files (pnpm web, e2e)
 src-tauri/
-  src/lib.rs         read_file / write_file / initial_files commands and the macOS Opened event
+  src/lib.rs         read_file / read_file_if_exists / write_file / initial_files / watch_file commands and the macOS Opened event
   tauri.conf.json    window, .md file association, asset protocol
   capabilities/      frontend permissions: when using a new Tauri API, add its permission here
 e2e/                 Playwright tests
@@ -64,7 +67,8 @@ ROADMAP.md           what's next and what's not planned: check it before proposi
 
 1. **Hybrid mode logic:** unit tests in `src/editor/*.test.ts`. They build an `EditorState`, call the pure function (`buildDecorations`, `softBreakRanges`) and check what is hidden, dimmed or turned into a widget.
 2. **Behavior and look:** `pnpm e2e`. To see the result, open the screenshots in `screenshots/`.
-3. **Native features** (menus, dialogs, Finder, title bar) can't be tested from the browser. Say so explicitly and let the user test them.
+3. **The file watcher:** `cd src-tauri && cargo test` covers it against the real filesystem (in-place writes, atomic replace, delete). In e2e, `__mded.platform.simulateExternalChange(path, contents | null, notify = true)` plays another program editing or deleting the file (`notify: false` is a change the watcher missed), and `__mded.settled()` waits for the editor's queued file checks.
+4. **Native features** (menus, dialogs, Finder, title bar) can't be tested from the browser. Say so explicitly and let the user test them.
 
 **Don't launch the user's installed browsers** (Chrome, Brave…), not even headless. Use Playwright's Chromium.
 
@@ -74,6 +78,8 @@ ROADMAP.md           what's next and what's not planned: check it before proposi
 - **Decorations that span line breaks** can't come from a `ViewPlugin`; they must come from a `StateField` (see `softbreaks.ts`).
 - **CodeMirror only renders what is visible.** In e2e tests, `.cm-line` `.first()` is not the document's first line once the view has scrolled. Use `{ hasText }` and retrying assertions (`toHaveText`, `expect.poll`).
 - **Biome 2.x also formats markdown.** `.md` files are excluded in `biome.json`; don't include them again or it will rewrite the test documents.
+- **Editing the file from outside:** `watch_file` watches the file's *parent directory* and filters by name. Editors, git and sync tools save by writing a temporary file and renaming it over the original, and a watch on the file itself keeps following the old, unlinked file and goes silent after the first such save. Watcher events are only a hint (they can be duplicated, or caused by our own write): `syncFromDisk()` in `main.ts` always compares the file's *content* with what the disk held when we last read or wrote it, never modification times.
+- **Never write the file without that comparison:** `writeTo()` re-reads the file and refuses to write if it differs from the baseline. Anything new that writes to the open file must go through it.
 - **macOS delivers "Open With" files before the `Ready` event**, which is when Tauri runs `setup()`. State is registered with `.manage()` on the builder, not in `setup()`.
 - **Release builds use `panic = "abort"`:** a failing `unwrap()` closes the app with no message. No `unwrap` in system event callbacks.
 - **macOS smart substitutions:** WebKit applies the system's smart quotes, dashes and spelling correction to typed text (`--` → `—`, `"` → `“`) unless the app registers its `WebAutomatic…Enabled` defaults. That is done in `disable_text_substitutions()` in `lib.rs` and can't be tested from the browser (Chromium has no such substitutions): check it by hand in the installed app.

@@ -6,7 +6,6 @@ Ideas and bug reports are welcome as issues, but read *Not planned* first.
 
 ## Now
 
-- Reload from file changed on disk
 - Test writing UX
 
 ## Next
@@ -24,6 +23,7 @@ Ideas and bug reports are welcome as issues, but read *Not planned* first.
 Ideas that fit the project, in no particular order.
 
 - A settings window (Cmd+,). Until then, preferences live in the *View* menu.
+- Automatic conflict resolution. Most of the time the lines that changed on disk are not the ones edited in the buffer, so a three-way merge (the last version read from disk as the common base, the buffer, and the new file) could combine both sides without asking, and only overlapping edits would fall back to the conflict bar. The base is already kept for the "did the file change?" check, so this needs no new bookkeeping.
 - Reopen recent files
 - Spelling autocorrect done right (e.g. never inside code)
 - Spell-check underline (WebKit keeps continuous spell checking off unless the app enables it)
