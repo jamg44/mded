@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-08
+
 ### Added
 
 - **Changes made elsewhere in the file are merged for you.** If another program changes the open file while you have unsaved changes, mded no longer makes you pick one version: when the changes are on different lines it adds theirs to your text, keeps yours exactly as typed, and tells you. Cmd+Z takes the merged changes away and leaves your own.
@@ -41,5 +43,6 @@ First version.
 - macOS integration: Finder's *Open With*, files dropped on the window, reopening the last file, and a warning before discarding unsaved changes.
 - The file is saved exactly as written: nothing rewrites or normalizes the markdown.
 
-[Unreleased]: https://github.com/jamg44/mded/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/jamg44/mded/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/jamg44/mded/releases/tag/v0.3.0
 [0.2.0]: https://github.com/jamg44/mded/releases/tag/v0.2.0
