@@ -91,3 +91,4 @@ ROADMAP.md           what's next and what's not planned: check it before proposi
 - Comments explain the *why*, not the *what*.
 - New preferences go in `prefs.ts` and are exposed in the **View** menu (`radioGroup` in `platform/tauri.ts`). The settings window (Cmd+,) is deliberately postponed.
 - Small, easy-to-test changes: the app is used daily and improvements are noted along the way.
+- User-visible changes get an entry under *Unreleased* in `CHANGELOG.md` (Keep a Changelog: Added / Changed / Fixed / Removed), written for people using the app. A release moves them under a new version heading, bumps `version` in `package.json`, `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json`, and is tagged `vX.Y.Z`.

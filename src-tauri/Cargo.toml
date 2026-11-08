@@ -1,6 +1,6 @@
 [package]
 name = "mded"
-version = "0.1.0"
+version = "0.2.0"
 description = "A native markdown editor with a hybrid live-preview mode"
 authors = ["jamg44"]
 license = "MIT"

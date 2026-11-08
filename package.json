@@ -1,7 +1,7 @@
 {
   "name": "mded",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A native markdown editor with a hybrid live-preview mode. Your file is saved exactly as you wrote it.",
   "license": "MIT",
   "author": "jamg44",

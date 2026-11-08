@@ -2032,7 +2032,7 @@ dependencies = [
 
 [[package]]
 name = "mded"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "notify-debouncer-mini",
  "objc2-foundation",
