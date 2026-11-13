@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-13
+
 ### Added
 
 - **Reading Mode.** *View → Reading Mode* (Cmd+E) shows the document rendered and protects it from stray key presses: nothing you type, paste, cut or drop changes the text, task checkboxes can't be ticked, and markers stay hidden. You can still select and copy, and the Up and Down arrows scroll the page. You can tell you are reading: a *Reading* pill sits in the top right corner (click it to go back to editing), the window title says *(Reading)*, and there is no text cursor. If you try to type, a brief notice tells you to press Cmd+E. Going back to editing keeps your cursor and your place in the document. The app always starts in editing mode.
@@ -56,6 +58,7 @@ First version.
 - macOS integration: Finder's *Open With*, files dropped on the window, reopening the last file, and a warning before discarding unsaved changes.
 - The file is saved exactly as written: nothing rewrites or normalizes the markdown.
 
-[Unreleased]: https://github.com/jamg44/mded/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/jamg44/mded/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/jamg44/mded/releases/tag/v0.4.0
 [0.3.0]: https://github.com/jamg44/mded/releases/tag/v0.3.0
 [0.2.0]: https://github.com/jamg44/mded/releases/tag/v0.2.0
