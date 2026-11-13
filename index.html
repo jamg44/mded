@@ -18,7 +18,10 @@
       <span id="bar-message" class="bar-message"></span>
       <span id="bar-actions" class="bar-actions"></span>
     </div>
-    <main id="editor"></main>
+    <main id="editor">
+      <!-- Shown in Reading Mode (main.ts). Never takes focus: the text keeps it -->
+      <button id="reading-pill" class="reading-pill" type="button" tabindex="-1" hidden>Reading</button>
+    </main>
     <div id="notice" class="notice" role="status" hidden></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

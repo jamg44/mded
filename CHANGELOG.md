@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Reading Mode.** *View → Reading Mode* (Cmd+E) shows the document rendered and protects it from stray key presses: nothing you type, paste, cut or drop changes the text, task checkboxes can't be ticked, and markers stay hidden. You can still select and copy, and the Up and Down arrows scroll the page. You can tell you are reading: a *Reading* pill sits in the top right corner (click it to go back to editing), the window title says *(Reading)*, and there is no text cursor. If you try to type, a brief notice tells you to press Cmd+E. Going back to editing keeps your cursor and your place in the document. The app always starts in editing mode.
+- **Join Lines When Reading.** A *View* option, off by default, that makes the lines of a hard-wrapped paragraph read as one paragraph while you are in Reading Mode. The file keeps its line breaks. It can be changed while reading; while editing it is greyed out, since it has no effect there.
+
+### Changed
+
+- **Editing always shows the file's line breaks as they are.** Before, with *Join Paragraphs* on, pressing Enter at the end of a paragraph, or typing on the blank line between two paragraphs, made the new line jump up and join the paragraph above while you typed. Joining lines now only happens in Reading Mode.
+
+### Removed
+
+- ***View → Line Breaks*** (*Join Paragraphs* / *As in File*). Its job is split: editing always shows lines as in the file, and *Join Lines When Reading* covers the other case. Your old choice is not carried over.
+
 ## [0.3.0] - 2026-11-08
 
 ### Added

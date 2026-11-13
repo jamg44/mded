@@ -32,7 +32,7 @@ Most "WYSIWYG" markdown editors parse your file into a document tree and write i
 - **Markers on demand** — `#`, `**`, `` ` ``, `[]()` and `>` stay hidden until the cursor enters the element they belong to.
 - **Clickable task lists** — ticking a checkbox changes `[ ]` to `[x]` in the text, and nothing else.
 - **Inline images**, including paths relative to the file.
-- **Reflowed paragraphs** — hard-wrapped lines read as one paragraph, as any renderer would show them, while the file keeps its line breaks. Switchable in *View → Line Breaks*.
+- **Reading Mode** (Cmd+E) — the document rendered and protected from stray key presses: nothing you type changes the text, markers stay hidden, and a *Reading* pill shows the mode. Optionally, *View → Join Lines When Reading* makes hard-wrapped lines read as one paragraph, as any renderer would show them; the file keeps its line breaks. While editing, lines are always shown as they are in the file.
 - **Cmd+click** on a link opens it in your browser.
 - **Light, dark or system theme**, and a choice of text width: *Readable*, *Wide* or *Full*.
 - **Safe next to other programs** — if another program changes the open file (another editor, git, a sync client, an AI agent), mded reloads it while you look at it. If you have unsaved changes, it merges the changes made on other lines into your text and highlights them until you save, with a bar that explains what happened; only when both sides touched the same lines does it show a warning bar and let you choose. Saving never overwrites a version of the file you have not seen.
@@ -75,7 +75,7 @@ In VS Code, **Cmd+Shift+B** starts the app.
 ### How it works
 
 - [`src/editor/hybrid.ts`](src/editor/hybrid.ts) walks CodeMirror's markdown syntax tree and turns it into decorations: hidden ranges, dimmed markers, line styles and widgets. It is a pure function of the editor state, so it is unit-tested without a browser.
-- [`src/editor/softbreaks.ts`](src/editor/softbreaks.ts) displays soft line breaks inside a paragraph as spaces.
+- [`src/editor/reading.ts`](src/editor/reading.ts) is Reading Mode: read-only, no markers revealed at the cursor, and [`src/editor/softbreaks.ts`](src/editor/softbreaks.ts) displaying soft line breaks inside a paragraph as spaces when joining is on.
 - [`src/platform/`](src/platform/) isolates everything native — menus, dialogs, file access — behind one interface, with a Tauri implementation and an in-browser one used for development and tests.
 - [`src-tauri/`](src-tauri/) is a deliberately thin Rust layer: read and write files, and receive the files Finder asks the app to open.
 

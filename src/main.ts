@@ -5,17 +5,10 @@ import { createBar } from './bar';
 import { dropIncoming, hasIncoming } from './editor/incoming';
 import { mergeChanges } from './editor/merge';
 import { reloadTransaction } from './editor/reload';
-import { createState, setJoinSoftBreaks } from './editor/setup';
+import { createState, readingModeEffect } from './editor/setup';
 import { basename, resolveRelative } from './paths';
 import type { Platform } from './platform/types';
-import {
-  applyAppearance,
-  type BreaksPref,
-  loadPrefs,
-  savePrefs,
-  type ThemePref,
-  type WidthPref,
-} from './prefs';
+import { applyAppearance, loadPrefs, savePrefs, type ThemePref, type WidthPref } from './prefs';
 import './styles.css';
 
 const isTauri = '__TAURI_INTERNALS__' in window;
@@ -24,6 +17,10 @@ const platform: Platform = isTauri
   : (await import('./platform/web')).webPlatform;
 
 let prefs = loadPrefs();
+/** Reading Mode. Deliberately not a preference: the app always starts in edit mode. */
+let reading = false;
+const editShortcut = navigator.userAgent.includes('Mac') ? '⌘E' : 'Ctrl+E';
+const readingPill = document.getElementById('reading-pill') as HTMLButtonElement;
 applyAppearance(prefs);
 platform.setWindowTheme(prefs.theme === 'system' ? null : prefs.theme);
 
@@ -51,7 +48,7 @@ const isDirty = () => missing || textChanged();
 const fileName = () => (path ? basename(path) : 'Untitled');
 
 function updateTitle() {
-  const title = `${isDirty() ? '• ' : ''}${fileName()} — mded`;
+  const title = `${isDirty() ? '• ' : ''}${fileName()}${reading ? ' (Reading)' : ''} — mded`;
   if (title === lastTitle) return;
   lastTitle = title;
   platform.setTitle(title);
@@ -65,12 +62,53 @@ function resolveImage(src: string): string {
 function newState(doc: string) {
   return createState(doc, {
     resolveImage,
-    joinSoftBreaks: prefs.breaks === 'join',
+    reading,
+    readingJoin: prefs.readingJoin,
     onChange: onDocChange,
+    onReadOnlyInput: readOnlyNotice,
     onOpenLink: (url) => {
       if (/^(https?|mailto):/i.test(url)) platform.openUrl(url);
     },
   });
+}
+
+/** Everything outside the editor that shows the mode: the menu check, the pill and the title. */
+function showReading() {
+  platform.setReadingMode(reading);
+  readingPill.hidden = !reading;
+  updateTitle();
+}
+
+readingPill.title = `Reading Mode. Click or press ${editShortcut} to edit`;
+// Keeps the focus (and the selection) in the editor, as the bar's buttons do
+readingPill.addEventListener('mousedown', (e) => e.preventDefault());
+readingPill.addEventListener('click', () => void actions.toggleReading());
+
+const readOnlyNotice = () => bar.notice(`Reading Mode: press ${editShortcut} to edit`);
+
+/**
+ * Moves the editor to Reading Mode, or back to editing, or applies the join option. The line at
+ * the top of the window stays where it was: joining lines changes heights, so restoring the
+ * same scroll offset would land somewhere else. The selection is untouched, so the caret stays.
+ *
+ * Setting `scrollTop` by hand does not work here: when the document gets much shorter (joined
+ * lines) CodeMirror's own scroll correction in the same update undoes it and the window jumps
+ * to the top. `scrollIntoView` goes through that correction, but it aligns the line's text,
+ * which sits a few pixels inside its block, so that gap is added to the margin or every switch
+ * would drift by it.
+ */
+function applyReading() {
+  const top = view.scrollDOM.getBoundingClientRect().top - view.documentTop;
+  const block = view.lineBlockAtHeight(top);
+  const text = view.coordsAtPos(block.from);
+  const inset = text ? text.top - view.documentTop - block.top : 0;
+  view.dispatch({
+    effects: [
+      readingModeEffect({ reading, join: prefs.readingJoin }),
+      EditorView.scrollIntoView(block.from, { y: 'start', yMargin: inset - (top - block.top) }),
+    ],
+  });
+  view.focus();
 }
 
 /** Watching is best effort: if it fails, the checks on focus and on save still protect the file. */
@@ -346,7 +384,13 @@ async function saveAs(): Promise<boolean> {
 
 const actions = {
   async newFile() {
-    if (await confirmDiscard()) load('', null);
+    if (!(await confirmDiscard())) return;
+    // An empty document is only useful for writing
+    if (reading) {
+      reading = false;
+      showReading();
+    }
+    load('', null);
   },
   async openFile() {
     if (!(await confirmDiscard())) return;
@@ -355,8 +399,9 @@ const actions = {
   },
   saveFile: () => (path ? writeTo(path) : saveAs()),
   saveAs,
-  undo: () => undo(view),
-  redo: () => redo(view),
+  // While reading both commands refuse (the document is read-only): say why
+  undo: () => undo(view) || (reading && readOnlyNotice()),
+  redo: () => redo(view) || (reading && readOnlyNotice()),
   setTheme(theme: ThemePref) {
     prefs = savePrefs({ theme });
     applyAppearance(prefs);
@@ -367,9 +412,14 @@ const actions = {
     applyAppearance(prefs);
     view.requestMeasure();
   },
-  setBreaks(breaks: BreaksPref) {
-    prefs = savePrefs({ breaks });
-    setJoinSoftBreaks(view, breaks === 'join');
+  toggleReading() {
+    reading = !reading;
+    showReading();
+    applyReading();
+  },
+  setReadingJoin(readingJoin: boolean) {
+    prefs = savePrefs({ readingJoin });
+    applyReading();
   },
 };
 

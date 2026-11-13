@@ -14,6 +14,7 @@ import {
   WidgetType,
 } from '@codemirror/view';
 import type { Tree } from '@lezer/common';
+import { readingMode } from './reading';
 
 export interface HybridOptions {
   /** Turns an image path (relative to the file) into a loadable URL. */
@@ -49,6 +50,8 @@ class CheckboxWidget extends WidgetType {
     box.checked = this.checked;
     box.addEventListener('mousedown', (e) => {
       e.preventDefault();
+      // The toggle is a direct dispatch, which readOnly does not stop
+      if (view.state.readOnly) return;
       // "[ ]" <-> "[x]": edits the text itself, not a separate model
       view.dispatch({
         changes: { from: this.pos + 1, to: this.pos + 2, insert: this.checked ? ' ' : 'x' },
@@ -105,7 +108,9 @@ export function buildDecorations(
   const ranges: readonly SelectionRange[] = state.selection.ranges;
   const resolveImage = opts.resolveImage ?? ((s: string) => s);
 
-  const touches = (from: number, to: number) => ranges.some((r) => r.from <= to && r.to >= from);
+  // Reading: the caret reveals nothing, so every marker stays hidden or rendered
+  const reading = state.facet(readingMode);
+  const touches = (from: number, to: number) => !reading && ranges.some((r) => r.from <= to && r.to >= from);
   const lineActive = (pos: number) => {
     const l = doc.lineAt(pos);
     return touches(l.from, l.to);
@@ -273,6 +278,8 @@ export function hybridMarkdown(opts: HybridOptions = {}) {
           u.docChanged ||
           u.viewportChanged ||
           u.selectionSet ||
+          // Entering or leaving Reading Mode is a reconfiguration, none of the above
+          u.startState.facet(readingMode) !== u.state.facet(readingMode) ||
           syntaxTree(u.startState) !== syntaxTree(u.state)
         ) {
           this.decorations = buildDecorations(u.state, syntaxTree(u.state), u.view.visibleRanges, opts);

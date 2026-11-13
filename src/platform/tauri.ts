@@ -4,7 +4,7 @@ import { CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu } from '@tau
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { ask, message, open, save } from '@tauri-apps/plugin-dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import { BREAKS_OPTIONS, type Prefs, THEME_OPTIONS, WIDTH_OPTIONS } from '../prefs';
+import { type Prefs, THEME_OPTIONS, WIDTH_OPTIONS } from '../prefs';
 import { type Actions, isMarkdownPath, MD_EXTENSIONS, type Platform } from './types';
 
 const isMac = navigator.userAgent.includes('Mac');
@@ -33,6 +33,14 @@ async function radioGroup<T extends string>(
   }
   return items;
 }
+
+/**
+ * Kept so that Reading Mode can be turned off from outside its menu item (File > New), and so
+ * that the join option is enabled only while reading: in edit mode it has no effect, and a
+ * checked, enabled option that does nothing looks broken.
+ */
+let readingItem: CheckMenuItem | null = null;
+let joinItem: CheckMenuItem | null = null;
 
 async function installMenu(a: Actions, prefs: Prefs) {
   const sep = () => PredefinedMenuItem.new({ item: 'Separator' });
@@ -70,6 +78,23 @@ async function installMenu(a: Actions, prefs: Prefs) {
     ],
   });
 
+  // Clicking a CheckMenuItem flips its check natively. The Reading Mode one is then set to the
+  // real state by setReadingMode (toggleReading calls it); the join option reads what it flipped to
+  readingItem = await CheckMenuItem.new({
+    text: 'Reading Mode',
+    accelerator: 'CmdOrCtrl+E',
+    checked: false,
+    action: () => void a.toggleReading(),
+  });
+  const join = await CheckMenuItem.new({
+    text: 'Join Lines When Reading',
+    checked: prefs.readingJoin,
+    // The app starts in edit mode
+    enabled: false,
+    action: async () => void a.setReadingJoin(await join.isChecked()),
+  });
+  joinItem = join;
+
   const viewMenu = await Submenu.new({
     text: 'View',
     items: [
@@ -81,10 +106,9 @@ async function installMenu(a: Actions, prefs: Prefs) {
         text: 'Text Width',
         items: await radioGroup(WIDTH_OPTIONS, prefs.width, a.setWidth),
       }),
-      await Submenu.new({
-        text: 'Line Breaks',
-        items: await radioGroup(BREAKS_OPTIONS, prefs.breaks, a.setBreaks),
-      }),
+      await sep(),
+      readingItem,
+      join,
       await sep(),
       await PredefinedMenuItem.new({ item: 'Fullscreen', text: 'Enter Full Screen' }),
     ],
@@ -138,6 +162,10 @@ export const tauriPlatform: Platform = {
   openUrl: (url) => void openUrl(url),
   fileUrl: (absPath) => convertFileSrc(absPath),
   installMenu,
+  setReadingMode(on) {
+    void readingItem?.setChecked(on);
+    void joinItem?.setEnabled(on);
+  },
   setWindowTheme: (theme) => void win.setTheme(theme),
   async onCloseRequested(allowClose) {
     await win.onCloseRequested(async (e) => {

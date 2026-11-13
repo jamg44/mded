@@ -4,13 +4,14 @@ import { EditorSelection, EditorState } from '@codemirror/state';
 import type { Decoration } from '@codemirror/view';
 import { describe, expect, it } from 'vitest';
 import { buildDecorations } from './hybrid';
+import { readingMode } from './reading';
 
 /** Hidden text (replace without widget), dimmed text, widgets and line classes, with the cursor at `cursor`. */
-function render(doc: string, cursor: number) {
+function render(doc: string, cursor: number, reading = false) {
   const state = EditorState.create({
     doc,
     selection: EditorSelection.cursor(cursor),
-    extensions: markdown({ base: markdownLanguage }),
+    extensions: [markdown({ base: markdownLanguage }), readingMode.of(reading)],
   });
   const tree = ensureSyntaxTree(state, doc.length, 5000);
   if (!tree) throw new Error('incomplete parse');
@@ -77,5 +78,35 @@ describe('hybrid mode', () => {
   it('hides the backslash of an escape outside its line', () => {
     const doc = '1\\. not a list\n\nend';
     expect(render(doc, doc.length).hidden).toEqual(['\\']);
+  });
+
+  describe('in Reading Mode', () => {
+    it('hides the heading marker even with the cursor on the heading', () => {
+      const doc = '# Title\n\ntext';
+      const r = render(doc, 3, true);
+      expect(r.hidden).toEqual(['# ']);
+      expect(r.dimmed).toEqual([]);
+    });
+
+    it('hides bold markers even with the cursor inside', () => {
+      const r = render('some **bold** text', 9, true);
+      expect(r.hidden).toEqual(['**', '**']);
+      expect(r.dimmed).toEqual([]);
+    });
+
+    it('keeps the task checkbox as a widget on the cursor line', () => {
+      const r = render('- [ ] todo\n\nend', 4, true);
+      expect(r.widgets).toEqual(['CheckboxWidget']);
+      expect(r.dimmed).toEqual([]);
+    });
+
+    it('keeps the bullet as a widget on the cursor line', () => {
+      const r = render('- one\n\nend', 3, true);
+      expect(r.widgets).toEqual(['BulletWidget']);
+    });
+
+    it('still reveals markers in edit mode', () => {
+      expect(render('some **bold** text', 9).dimmed).toEqual(['**', '**']);
+    });
   });
 });

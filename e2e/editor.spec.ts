@@ -70,7 +70,17 @@ test('clicking a checkbox turns [ ] into [x] in the text', async ({ page }) => {
   await expect.poll(() => docText(page)).toContain('- [x] A pending task');
 });
 
-test('visually joins the lines of a paragraph without changing the text', async ({ page }) => {
+test('shows the lines of a paragraph as they are in the file while editing', async ({ page }) => {
+  const para = page.locator('.cm-line', { hasText: 'mded shows your markdown' });
+  await expect(para).not.toContainText('appear where');
+  expect(await docText(page)).toContain('markers only\nappear where');
+});
+
+test('Reading Mode with joining on visually joins the lines without changing the text', async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem('mded.prefs', JSON.stringify({ readingJoin: true })));
+  await page.reload();
+  await expect(page).toHaveTitle(TITLE);
+  await page.keyboard.press(`${mod}+e`);
   const para = page.locator('.cm-line', { hasText: 'mded shows your markdown' });
   await expect(para).toContainText('but it reads as one paragraph');
   expect(await docText(page)).toContain('markers only\nappear where');

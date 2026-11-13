@@ -103,6 +103,7 @@ export const webPlatform: Platform & {
           n: a.newFile,
           o: a.openFile,
           s: e.shiftKey ? a.saveAs : a.saveFile,
+          e: a.toggleReading,
         };
         const action = shortcuts[e.key.toLowerCase()];
         if (!action) return;
@@ -112,6 +113,7 @@ export const webPlatform: Platform & {
       true,
     );
   },
+  setReadingMode() {},
   async onCloseRequested() {},
   async onOpenFiles() {},
   async initialFiles() {

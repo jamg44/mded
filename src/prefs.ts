@@ -3,13 +3,12 @@
 
 export type ThemePref = 'system' | 'light' | 'dark';
 export type WidthPref = 'readable' | 'wide' | 'full';
-export type BreaksPref = 'join' | 'keep';
 
 export interface Prefs {
   theme: ThemePref;
   width: WidthPref;
-  /** Single line breaks inside a paragraph: join them (as rendered) or show them as in the file. */
-  breaks: BreaksPref;
+  /** Reading Mode only: show single line breaks inside a paragraph as spaces (as rendered). */
+  readingJoin: boolean;
   /** Last opened file, reopened on launch. */
   lastFile: string | null;
 }
@@ -26,17 +25,16 @@ export const WIDTH_OPTIONS: [WidthPref, string][] = [
   ['full', 'Full'],
 ];
 
-export const BREAKS_OPTIONS: [BreaksPref, string][] = [
-  ['join', 'Join Paragraphs'],
-  ['keep', 'As in File'],
-];
-
 const KEY = 'mded.prefs';
-const DEFAULTS: Prefs = { theme: 'system', width: 'readable', breaks: 'join', lastFile: null };
+const DEFAULTS: Prefs = { theme: 'system', width: 'readable', readingJoin: false, lastFile: null };
 
 export function loadPrefs(): Prefs {
   try {
-    return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) ?? '{}') };
+    const stored = JSON.parse(localStorage.getItem(KEY) ?? '{}');
+    // `breaks` was the old, always-on version of readingJoin: it means something else now,
+    // so it is dropped and savePrefs stops writing it back
+    const { breaks: _old, ...rest } = stored;
+    return { ...DEFAULTS, ...rest };
   } catch {
     return { ...DEFAULTS };
   }

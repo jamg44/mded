@@ -8,7 +8,7 @@ import type { SyntaxNode } from '@lezer/common';
 import { tags as t } from '@lezer/highlight';
 import { type HybridOptions, hybridMarkdown } from './hybrid';
 import { incomingLines } from './incoming';
-import { joinSoftBreaks } from './softbreaks';
+import { readingExtensions } from './reading';
 
 // Colors for code blocks only; the markdown look comes from hybrid.ts
 const codeHighlight = HighlightStyle.define([
@@ -47,6 +47,12 @@ const theme = EditorView.theme({
     transition: 'none',
     boxShadow: 'inset 3px 0 0 var(--incoming-bar), inset 0 0 0 100vmax var(--incoming-bg)',
   },
+  // Reading Mode (reading.ts). `.cm-reading` is on the editor's root, the element that carries
+  // this theme's class, so the rules need `&`: a plain `.cm-reading …` would never match
+  '&.cm-reading .cm-md-checkbox': { cursor: 'default' },
+  // No caret while reading: the selection is still there, and comes back as the caret when editing
+  '&.cm-reading .cm-cursorLayer': { display: 'none' },
+  '&.cm-reading .cm-content': { caretColor: 'transparent' },
   '.cm-line.cm-md-codeblock': { paddingLeft: '12px' },
   '.cm-line.cm-md-quote': { paddingLeft: '14px' },
 });
@@ -63,17 +69,30 @@ function linkAt(state: EditorState, pos: number): string | null {
   return null;
 }
 
-const softBreaks = new Compartment();
+const mode = new Compartment();
 
-/** Turns visual joining of single line breaks on or off in an existing editor. */
-export function setJoinSoftBreaks(view: EditorView, join: boolean) {
-  view.dispatch({ effects: softBreaks.reconfigure(join ? joinSoftBreaks : []) });
+/** What the compartment holds for a mode. Edit mode adds nothing: it is the editor's base. */
+const modeExtension = (reading: boolean, join: boolean) => (reading ? readingExtensions(join) : []);
+
+export interface ReadingState {
+  reading: boolean;
+  /** Reading Mode only: show single line breaks inside a paragraph as spaces. */
+  join: boolean;
+}
+
+/** The effect that moves an existing editor to a mode (or changes the join option of Reading Mode). */
+export function readingModeEffect({ reading, join }: ReadingState) {
+  return mode.reconfigure(modeExtension(reading, join));
 }
 
 export interface EditorOptions extends HybridOptions {
-  /** Show single line breaks inside a paragraph as spaces (as rendered). */
-  joinSoftBreaks?: boolean;
+  /** Start in Reading Mode. */
+  reading?: boolean;
+  /** Reading Mode joins single line breaks inside a paragraph (as rendered). */
+  readingJoin?: boolean;
   onChange?: (state: EditorState) => void;
+  /** The user tried to change the document while it is read-only (typing, paste, drop…). */
+  onReadOnlyInput?: () => void;
   /** Cmd/Ctrl + click on a link. */
   onOpenLink?: (url: string) => void;
 }
@@ -90,12 +109,18 @@ export function editorExtensions(opts: EditorOptions): Extension[] {
     placeholder('Write markdown…'),
     EditorView.contentAttributes.of({ spellcheck: 'true', autocorrect: 'off', autocapitalize: 'on' }),
     hybridMarkdown(opts),
-    softBreaks.of(opts.joinSoftBreaks ? joinSoftBreaks : []),
+    mode.of(modeExtension(opts.reading ?? false, opts.readingJoin ?? false)),
     incomingLines,
     EditorView.updateListener.of((u) => {
       if (u.docChanged) opts.onChange?.(u.state);
     }),
     EditorView.domEventHandlers({
+      // Fires for every attempt to change the text (typing, Enter, delete, paste, cut, drop)
+      // and not for moving the caret or copying. We only report it: CodeMirror discards the input.
+      beforeinput(_e, view) {
+        if (view.state.readOnly) opts.onReadOnlyInput?.();
+        return false;
+      },
       mousedown(e, view) {
         if (!(e.metaKey || e.ctrlKey) || !opts.onOpenLink) return false;
         const pos = view.posAtCoords({ x: e.clientX, y: e.clientY });

@@ -14,7 +14,7 @@ Ideas and bug reports are welcome as issues, but read *Not planned* first.
 - Format hotkeys
 - Table rendering
 - Numbered lists. Also check that Enter in an ordered list doesn't renumber the following items, which would change text the user didn't touch.
-- Source mode: toggle hybrid rendering off
+- Source mode: toggle hybrid rendering off. It completes the scale Source ↔ Hybrid ↔ Reading (Reading Mode already exists)
 - Reference links and images: `[text][ref]`
 - Search and replace
 

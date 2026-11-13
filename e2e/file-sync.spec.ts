@@ -398,8 +398,13 @@ test.describe('with the example open', () => {
     });
 
     test('mark a line of a joined paragraph', async ({ page }) => {
-      // Join Paragraphs is the default: the three lines of the first paragraph are one visual line
+      // Joined lines exist only in Reading Mode with joining on: the three lines of the first
+      // paragraph are one visual line. The merge happens while reading
+      await page.evaluate(() => localStorage.setItem('mded.prefs', JSON.stringify({ readingJoin: true })));
+      await page.reload();
+      await expect(page).toHaveTitle(TITLE);
       await typeAtEnd(page, ' mine');
+      await page.keyboard.press(`${mod}+e`);
       await external(page, original.replace('appear where', 'appear only where'));
       await expect(incoming(page).filter({ hasText: 'mded shows your markdown' })).toHaveCount(1);
     });

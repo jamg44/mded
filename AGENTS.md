@@ -38,14 +38,15 @@ A native markdown editor with a **hybrid mode**, in the style of Typora or Obsid
 ```
 src/
   main.ts            document state (path, unsaved changes, what the disk held) and actions; keeps the file and the editor in sync
-  prefs.ts           preferences (theme, width, line breaks, last file) in localStorage
+  prefs.ts           preferences (theme, width, join lines when reading, last file) in localStorage
   paths.ts           path helpers without Node
   bar.ts             the bar above the editor (file conflict, file deleted) and the "Reloaded from disk" notice
   styles.css         color tokens (light/dark), hybrid mode styles, bar and notice
   editor/
     setup.ts         CodeMirror extensions and theme (EditorView.theme)
     hybrid.ts        hybrid mode: ViewPlugin, syntax tree → decorations
-    softbreaks.ts    visually joins single line breaks inside a paragraph (StateField)
+    reading.ts       Reading Mode: read-only, no markers revealed at the caret, optional joining of lines (one extension swapped as a whole)
+    softbreaks.ts    visually joins single line breaks inside a paragraph, only in Reading Mode (StateField)
     reload.ts        minimal replacement between the document and the new file content, line by line (reload keeps cursor, scroll and undo)
     linediff.ts      pure line diff (Myers); a line includes its separator
     merge.ts         three-way merge by lines: the other side's changes applied to the document (all or nothing)
@@ -79,7 +80,8 @@ ROADMAP.md           what's next and what's not planned: check it before proposi
 
 - **CodeMirror styles:** its base styles beat `styles.css` on specificity because they are injected later. Anything that must win over them (font, padding, cursor, selection) goes in `EditorView.theme` in `setup.ts`, without `!important`.
 - **Decorations that span line breaks** can't come from a `ViewPlugin`; they must come from a `StateField` (see `softbreaks.ts`).
-- **With soft line breaks joined, a paragraph's lines are one `.cm-line`** and CodeMirror only keeps the line decoration of the first one. `incoming.ts` decorates the first line of the group; do the same for any new per-line decoration.
+- **`readOnly` does not stop code that dispatches.** Reading Mode uses `EditorState.readOnly`, which makes CodeMirror discard typing, paste, cut, drop and undo/redo, but a widget or command that calls `view.dispatch` still edits the text. Anything that changes text must check `state.readOnly` (see the checkbox in `hybrid.ts`). Reloads and merges from disk dispatch on purpose and keep working while reading.
+- **With soft line breaks joined (Reading Mode only), a paragraph's lines are one `.cm-line`** and CodeMirror only keeps the line decoration of the first one. `incoming.ts` decorates the first line of the group; do the same for any new per-line decoration.
 - **Don't dispatch from an update listener.** `onChange` runs inside the update, so `adopt()` (which `onDocChange` can call) defers its dispatch with `queueMicrotask` (`clearMerged` in `main.ts`).
 - **CodeMirror only renders what is visible.** In e2e tests, `.cm-line` `.first()` is not the document's first line once the view has scrolled. Use `{ hasText }` and retrying assertions (`toHaveText`, `expect.poll`).
 - **Biome 2.x also formats markdown.** `.md` files are excluded in `biome.json`; don't include them again or it will rewrite the test documents.

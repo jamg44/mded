@@ -150,12 +150,12 @@ describe('incoming lines', () => {
 
   it('mark the first line of a joined paragraph when a later one changed', () => {
     const wrapped = 'First line\nsecond line\nthird line\n\nOther paragraph.\n';
-    const state = createState(wrapped, { joinSoftBreaks: true });
+    const state = createState(wrapped, { reading: true, readingJoin: true });
     const tr = reloadTransaction(state, wrapped.replace('second', 'changed second'));
     if (tr === null || tr === 'rebuild') throw new Error('expected a transaction');
     expect(lines(tr.state)).toEqual([1]);
     // ...and the line itself when the breaks are not joined
-    const kept = createState(wrapped, { joinSoftBreaks: false });
+    const kept = createState(wrapped, { reading: true, readingJoin: false });
     const tr2 = reloadTransaction(kept, wrapped.replace('second', 'changed second'));
     if (tr2 === null || tr2 === 'rebuild') throw new Error('expected a transaction');
     expect(lines(tr2.state)).toEqual([2]);

@@ -117,6 +117,8 @@ body {
 #editor {
   flex: 1;
   min-height: 0;
+  /* The Reading Mode pill is placed over its top right corner, so it stays below the bar */
+  position: relative;
 }
 
 /* ---------- File bar and notice (see bar.ts) ---------- */
@@ -205,6 +207,31 @@ body {
 }
 .notice.out {
   opacity: 0;
+}
+
+/* ---------- Reading Mode pill (see main.ts) ---------- */
+.reading-pill {
+  position: absolute;
+  top: 10px;
+  right: 16px;
+  /* Above the strip of body::before, which would swallow the clicks */
+  z-index: 12;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 3px 11px;
+  color: var(--muted);
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.reading-pill:hover {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.reading-pill[hidden] {
+  display: none;
 }
 
 /* ---------- CodeMirror ---------- */

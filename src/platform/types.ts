@@ -1,4 +1,4 @@
-import type { BreaksPref, Prefs, ThemePref, WidthPref } from '../prefs';
+import type { Prefs, ThemePref, WidthPref } from '../prefs';
 
 /** Editor actions that the platform wires to menus or shortcuts. */
 export interface Actions {
@@ -10,7 +10,8 @@ export interface Actions {
   redo(): unknown;
   setTheme(theme: ThemePref): unknown;
   setWidth(width: WidthPref): unknown;
-  setBreaks(breaks: BreaksPref): unknown;
+  toggleReading(): unknown;
+  setReadingJoin(join: boolean): unknown;
 }
 
 /**
@@ -49,6 +50,11 @@ export interface Platform {
   fileUrl(absPath: string): string;
   /** `prefs` sets the checked options in the View menu. */
   installMenu(actions: Actions, prefs: Prefs): Promise<void>;
+  /**
+   * Reading Mode changed: keeps the View menu right (the check mark, which File > New can clear,
+   * and the join option, enabled only while reading).
+   */
+  setReadingMode(on: boolean): void;
   /** Appearance of the native window (title bar). null = follow the system. */
   setWindowTheme(theme: 'light' | 'dark' | null): void;
   /** `allowClose` decides whether the window may close. */
