@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-14
+
 ### Added
 
 - **Find and replace.** Cmd+F (or *Edit → Find…*) opens a search panel at the top of the window. It highlights every match, tells you next to the search field how many there are and which one you are on ("3 of 7"), and steps through them with Enter and Shift+Enter, the up and down arrows of the panel, or Cmd+G and Shift+Cmd+G from anywhere; *Edit → Find Next* and *Find Previous* do the same. It has *match case*, *by word* and *regexp* options. Escape closes it and puts you back in the text. Opening the panel while some text is selected searches for that text.
@@ -66,7 +68,8 @@ First version.
 - macOS integration: Finder's *Open With*, files dropped on the window, reopening the last file, and a warning before discarding unsaved changes.
 - The file is saved exactly as written: nothing rewrites or normalizes the markdown.
 
-[Unreleased]: https://github.com/jamg44/mded/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/jamg44/mded/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/jamg44/mded/releases/tag/v0.5.0
 [0.4.0]: https://github.com/jamg44/mded/releases/tag/v0.4.0
 [0.3.0]: https://github.com/jamg44/mded/releases/tag/v0.3.0
 [0.2.0]: https://github.com/jamg44/mded/releases/tag/v0.2.0
