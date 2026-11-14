@@ -438,3 +438,41 @@ test.describe('changes on disk while reading', () => {
     await expect(alert(page)).toBeHidden();
   });
 });
+
+// A search match is the one thing that shows markers while reading (the `search` capability says
+// how a match is found; this is what Reading Mode does with it)
+test.describe('search while reading', () => {
+  const doc = 'A **bold** word\n\nend\n';
+  const boldLine = (page: Page) => lines(page).filter({ hasText: 'word' });
+
+  test.beforeEach(async ({ page }) => {
+    await openDoc(page, doc);
+    // The caret on the last line, away from the bold
+    await select(page, doc.length - 1);
+    await toggleReading(page);
+    await expect(page).toHaveTitle('reading-mode-test.md (Reading) — mded');
+  });
+
+  test('a match on visible text keeps the markers hidden', async ({ page }) => {
+    await page.keyboard.press(`${mod}+f`);
+    await page.keyboard.type('bold');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.cm-searchMatch-selected')).toHaveText('bold');
+    await expect(boldLine(page)).toHaveText('A bold word');
+    await expect(boldLine(page).locator('.cm-md-mark')).toHaveCount(0);
+  });
+
+  test('a match on the markers shows them dimmed until the panel is closed', async ({ page }) => {
+    await page.keyboard.press(`${mod}+f`);
+    await page.keyboard.type('**');
+    await expect(boldLine(page)).toHaveText('A **bold** word');
+    await expect(boldLine(page).locator('.cm-md-mark')).toHaveText(['**', '**']);
+
+    await page.keyboard.press('Escape');
+    await expect(boldLine(page)).toHaveText('A bold word');
+    await expect(boldLine(page).locator('.cm-md-mark')).toHaveCount(0);
+    // Still reading, and the text is as it was
+    await expect(page).toHaveTitle('reading-mode-test.md (Reading) — mded');
+    expect(await text(page)).toBe(doc);
+  });
+});

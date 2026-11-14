@@ -2,13 +2,14 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirro
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { HighlightStyle, syntaxHighlighting, syntaxTree } from '@codemirror/language';
 import { languages } from '@codemirror/language-data';
-import { Compartment, EditorState, type Extension } from '@codemirror/state';
+import { Compartment, EditorState, type Extension, Prec } from '@codemirror/state';
 import { drawSelection, EditorView, keymap, placeholder } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
 import { tags as t } from '@lezer/highlight';
 import { type HybridOptions, hybridMarkdown } from './hybrid';
 import { incomingLines } from './incoming';
 import { readingExtensions } from './reading';
+import { searchExtension } from './search';
 
 // Colors for code blocks only; the markdown look comes from hybrid.ts
 const codeHighlight = HighlightStyle.define([
@@ -55,6 +56,111 @@ const theme = EditorView.theme({
   '&.cm-reading .cm-content': { caretColor: 'transparent' },
   '.cm-line.cm-md-codeblock': { paddingLeft: '12px' },
   '.cm-line.cm-md-quote': { paddingLeft: '14px' },
+
+  // Search panel (search.ts). The panel is CodeMirror's own, dressed in the app's tokens.
+  // It sits above the text; its content lines up with the text column
+  '.cm-panels': {
+    backgroundColor: 'var(--bg)',
+    color: 'var(--text)',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
+    fontSize: '13px',
+  },
+  '.cm-panels.cm-panels-top': { borderBottom: '1px solid var(--border)' },
+  '.cm-panel.cm-search': {
+    maxWidth: 'var(--content-width)',
+    margin: '0 auto',
+    padding: '8px 32px 6px',
+    '& input, & button, & label': { margin: '0 8px 4px 0' },
+    '& input[type=checkbox]': { margin: '0 4px 0 0', accentColor: 'var(--accent)' },
+    '& label': { fontSize: '12px', color: 'var(--muted)', whiteSpace: 'pre' },
+    // "all" selects every match, which needs multiple selections: the editor has none
+    '& button[name=select]': { display: 'none' },
+    '& button[name=close]': {
+      right: '24px',
+      top: '6px',
+      margin: 0,
+      color: 'var(--muted)',
+      fontSize: '18px',
+      lineHeight: '1',
+      cursor: 'pointer',
+    },
+    '& button[name=close]:hover': { color: 'var(--text)' },
+    // Previous and next as arrows: the words CodeMirror puts in the buttons are given no size and
+    // the arrow is drawn instead (search.ts names them for screen readers)
+    '& button[name=prev], & button[name=next]': {
+      fontSize: '0',
+      padding: '3px 7px',
+      margin: '0 4px 4px 0',
+    },
+    '& button[name=next]': { marginRight: '10px' },
+    '& button[name=prev]::before, & button[name=next]::before': { fontSize: '14px', lineHeight: '18px' },
+    '& button[name=prev]::before': { content: '"↑"' },
+    '& button[name=next]::before': { content: '"↓"' },
+    // The arrow that shows the replace row, in the panel's left margin so the fields of both
+    // rows line up
+    '& .cm-search-toggle': {
+      position: 'absolute',
+      left: '6px',
+      top: '9px',
+      width: '20px',
+      height: '22px',
+      margin: 0,
+      padding: 0,
+      border: 'none',
+      borderRadius: '4px',
+      background: 'transparent',
+      color: 'var(--muted)',
+      fontSize: '16px',
+      lineHeight: '20px',
+      cursor: 'pointer',
+      transition: 'transform 0.1s',
+    },
+    '& .cm-search-toggle:hover': { color: 'var(--text)', background: 'var(--code-bg)' },
+    '& .cm-search-toggle[aria-expanded=true]': { transform: 'rotate(90deg)' },
+  },
+  // The replace row is in the panel all along (while editing) and shown on request: search.ts
+  // puts `cm-replace-shown` on the editor
+  '&:not(.cm-replace-shown) .cm-panel.cm-search': {
+    '& br, & [name=replace], & [name=replaceAll]': { display: 'none' },
+  },
+  // Right after the search field, and as wide empty as full, so the buttons after it stay put
+  '.cm-panel.cm-search .cm-search-count': {
+    display: 'inline-block',
+    minWidth: '76px',
+    margin: '0 8px 4px 0',
+    fontSize: '12px',
+    color: 'var(--muted)',
+    whiteSpace: 'pre',
+    // A zero-width space: an empty inline block would sit on the baseline by its bottom edge
+    '&::before': { content: '"\\200b"' },
+  },
+  '.cm-panel.cm-search .cm-textfield': {
+    fontFamily: 'inherit',
+    fontSize: 'inherit',
+    color: 'var(--text)',
+    backgroundColor: 'var(--bg)',
+    border: '1px solid var(--border)',
+    borderRadius: '6px',
+    padding: '4px 8px',
+    outline: 'none',
+  },
+  '.cm-panel.cm-search .cm-textfield:focus': { borderColor: 'var(--accent)' },
+  '.cm-panel.cm-search .cm-button': {
+    fontFamily: 'inherit',
+    fontSize: 'inherit',
+    color: 'var(--text)',
+    backgroundColor: 'var(--code-bg)',
+    backgroundImage: 'none',
+    border: '1px solid var(--border)',
+    borderRadius: '6px',
+    padding: '3px 10px',
+    cursor: 'pointer',
+  },
+  '.cm-panel.cm-search .cm-button:hover': { borderColor: 'var(--accent)' },
+  // CodeMirror picks the colors of the matches by whether *it* thinks the theme is dark, which it
+  // does not know (the app's dark mode is a CSS token switch): these take them from the tokens
+  '.cm-searchMatch': { backgroundColor: 'var(--match-bg)' },
+  '.cm-searchMatch.cm-searchMatch-selected': { backgroundColor: 'var(--match-current-bg)' },
 });
 
 /** URL of the [text](url) link at the position, if any. */
@@ -101,6 +207,7 @@ export function editorExtensions(opts: EditorOptions): Extension[] {
   return [
     history(),
     drawSelection(),
+    searchExtension,
     keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
     markdown({ base: markdownLanguage, codeLanguages: languages }),
     syntaxHighlighting(codeHighlight),
@@ -108,7 +215,10 @@ export function editorExtensions(opts: EditorOptions): Extension[] {
     EditorView.lineWrapping,
     placeholder('Write markdown…'),
     EditorView.contentAttributes.of({ spellcheck: 'true', autocorrect: 'off', autocapitalize: 'on' }),
-    hybridMarkdown(opts),
+    // Lowest, so that the highlight of a search match is drawn *inside* a styled piece of text
+    // and not around it: around, it cuts inline code into pieces, each with its own padding and
+    // its own background over the highlight
+    Prec.lowest(hybridMarkdown(opts)),
     mode.of(modeExtension(opts.reading ?? false, opts.readingJoin ?? false)),
     incomingLines,
     EditorView.updateListener.of((u) => {

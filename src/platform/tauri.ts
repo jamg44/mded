@@ -41,6 +41,8 @@ async function radioGroup<T extends string>(
  */
 let readingItem: CheckMenuItem | null = null;
 let joinItem: CheckMenuItem | null = null;
+/** Replacing edits the text, so it is off while reading (the panel has no replace field then either). */
+let replaceItem: MenuItem | null = null;
 
 async function installMenu(a: Actions, prefs: Prefs) {
   const sep = () => PredefinedMenuItem.new({ item: 'Separator' });
@@ -64,17 +66,24 @@ async function installMenu(a: Actions, prefs: Prefs) {
   });
 
   // On macOS the menu accelerator catches the key before the webview;
-  // on Windows/Linux we let CodeMirror's keymap handle undo/redo.
+  // on Windows/Linux we let CodeMirror's keymap handle undo/redo and the search keys.
+  const macOnly = (accelerator: string) => (isMac ? accelerator : undefined);
+  replaceItem = await item('Find and Replace…', macOnly('CmdOrCtrl+Alt+F'), a.replace);
   const editMenu = await Submenu.new({
     text: 'Edit',
     items: [
-      await item('Undo', isMac ? 'CmdOrCtrl+Z' : undefined, a.undo),
-      await item('Redo', isMac ? 'CmdOrCtrl+Shift+Z' : undefined, a.redo),
+      await item('Undo', macOnly('CmdOrCtrl+Z'), a.undo),
+      await item('Redo', macOnly('CmdOrCtrl+Shift+Z'), a.redo),
       await sep(),
       await PredefinedMenuItem.new({ item: 'Cut', text: 'Cut' }),
       await PredefinedMenuItem.new({ item: 'Copy', text: 'Copy' }),
       await PredefinedMenuItem.new({ item: 'Paste', text: 'Paste' }),
       await PredefinedMenuItem.new({ item: 'SelectAll', text: 'Select All' }),
+      await sep(),
+      await item('Find…', macOnly('CmdOrCtrl+F'), a.find),
+      await item('Find Next', macOnly('CmdOrCtrl+G'), a.findNext),
+      await item('Find Previous', macOnly('CmdOrCtrl+Shift+G'), a.findPrevious),
+      replaceItem,
     ],
   });
 
@@ -165,6 +174,7 @@ export const tauriPlatform: Platform = {
   setReadingMode(on) {
     void readingItem?.setChecked(on);
     void joinItem?.setEnabled(on);
+    void replaceItem?.setEnabled(!on);
   },
   setWindowTheme: (theme) => void win.setTheme(theme),
   async onCloseRequested(allowClose) {

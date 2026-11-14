@@ -8,6 +8,12 @@ export interface Actions {
   saveAs(): unknown;
   undo(): unknown;
   redo(): unknown;
+  /** Edit > Find…: opens the search panel. */
+  find(): unknown;
+  findNext(): unknown;
+  findPrevious(): unknown;
+  /** Edit > Find and Replace…: the panel with the focus in the replace field. Not while reading. */
+  replace(): unknown;
   setTheme(theme: ThemePref): unknown;
   setWidth(width: WidthPref): unknown;
   toggleReading(): unknown;

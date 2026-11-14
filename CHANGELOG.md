@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Find and replace.** Cmd+F (or *Edit → Find…*) opens a search panel at the top of the window. It highlights every match, tells you next to the search field how many there are and which one you are on ("3 of 7"), and steps through them with Enter and Shift+Enter, the up and down arrows of the panel, or Cmd+G and Shift+Cmd+G from anywhere; *Edit → Find Next* and *Find Previous* do the same. It has *match case*, *by word* and *regexp* options. Escape closes it and puts you back in the text. Opening the panel while some text is selected searches for that text.
+- **Replace.** The replace field stays out of the way until you want it: *Edit → Find and Replace…* (Cmd+Option+F) opens the panel with the cursor in it, and the small arrow at the left of the panel shows and hides it. *Replace* changes the current match and moves to the next one, and *replace all* changes every match as a single step, so one Cmd+Z takes it all back. Only the matched text changes: the rest of the file, line endings included, stays exactly as it was, and a line break typed as `\n` in the replace field is written as the file's own.
+- **Search sees your file, not the rendering.** It matches the markdown as it is written: you can find a `**`, and the URL of a link, but `is important` does not match `is **important**`. When a match falls on text that is hidden (a marker, a URL, an image's source), that element shows its markers while the panel is open, so a match is never invisible.
+- **Reading Mode can search.** The panel works there too, without the replace field, and *Edit → Find and Replace…* is greyed out while you read.
+- **The panel does not move your text.** Opening or closing it keeps the line you are reading where it is; only at the very start of a document does the text move down, so the panel does not cover the first lines.
+
 ## [0.4.0] - 2026-11-13
 
 ### Added

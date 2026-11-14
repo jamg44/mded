@@ -25,6 +25,8 @@
   --merged-bg: #e6f6ec;
   --merged-border: #9ad3ad;
   --merged-text: #14532d;
+  --match-bg: rgba(250, 204, 21, 0.38);
+  --match-current-bg: rgba(249, 115, 22, 0.42);
   color-scheme: light;
 }
 
@@ -55,6 +57,8 @@
     --merged-bg: #183024;
     --merged-border: #2f6b45;
     --merged-text: #b7e4c7;
+    --match-bg: rgba(250, 204, 21, 0.3);
+    --match-current-bg: rgba(251, 146, 60, 0.5);
     color-scheme: dark;
   }
 }
@@ -85,6 +89,8 @@
   --merged-bg: #183024;
   --merged-border: #2f6b45;
   --merged-text: #b7e4c7;
+  --match-bg: rgba(250, 204, 21, 0.3);
+  --match-current-bg: rgba(251, 146, 60, 0.5);
   color-scheme: dark;
 }
 
@@ -212,7 +218,8 @@ body {
 /* ---------- Reading Mode pill (see main.ts) ---------- */
 .reading-pill {
   position: absolute;
-  top: 10px;
+  /* Below the search panel while it is open (search.ts sets the height; 0 without it) */
+  top: calc(10px + var(--search-panel-height, 0px));
   right: 16px;
   /* Above the strip of body::before, which would swallow the clicks */
   z-index: 12;

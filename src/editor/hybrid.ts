@@ -13,12 +13,19 @@ import {
   type ViewUpdate,
   WidgetType,
 } from '@codemirror/view';
-import type { Tree } from '@lezer/common';
+import type { SyntaxNode, Tree } from '@lezer/common';
 import { readingMode } from './reading';
+import { revealRanges, searchStateChanged } from './search';
 
 export interface HybridOptions {
   /** Turns an image path (relative to the file) into a loadable URL. */
   resolveImage?: (src: string) => string;
+  /**
+   * Ranges that must be seen: the matches of an open search. An element whose hidden text they
+   * overlap shows its markers, in Reading Mode too. Not the caret: the selection reveals nothing
+   * there, and a match does, because it is what the user asked to see.
+   */
+  reveal?: readonly { from: number; to: number }[];
 }
 
 class BulletWidget extends WidgetType {
@@ -107,6 +114,7 @@ export function buildDecorations(
   const decos: Range<Decoration>[] = [];
   const ranges: readonly SelectionRange[] = state.selection.ranges;
   const resolveImage = opts.resolveImage ?? ((s: string) => s);
+  const reveal = opts.reveal ?? [];
 
   // Reading: the caret reveals nothing, so every marker stays hidden or rendered
   const reading = state.facet(readingMode);
@@ -124,6 +132,12 @@ export function buildDecorations(
   };
   const hideOrDim = (active: boolean, from: number, to: number) => (active ? dim(from, to) : hide(from, to));
   const withSpace = (to: number) => (doc.sliceString(to, to + 1) === ' ' ? to + 1 : to);
+  // A match reveals an element when it shares at least one character with text the element hides.
+  // Strictly: a match that only ends where a marker begins has nothing hidden in it. The whole
+  // element is then revealed (both `**`, not just the one that matched), as if the caret were in it
+  const overlaps = (from: number, to: number) => reveal.some((r) => r.from < to && r.to > from);
+  const childHit = (parent: SyntaxNode, ...names: string[]) =>
+    names.some((n) => parent.getChildren(n).some((c) => overlaps(c.from, c.to)));
   const lines = (cls: string, from: number, to: number) => {
     for (let pos = from; pos <= to; ) {
       const l = doc.lineAt(pos);
@@ -149,9 +163,12 @@ export function buildDecorations(
         switch (name) {
           case 'HeaderMark': {
             if (!parent) return;
-            const active = touches(parent.from, parent.to);
-            const end = parent.name.startsWith('ATX') ? withSpace(ref.to) : ref.to;
-            hideOrDim(active, ref.from, end);
+            const atx = parent.name.startsWith('ATX');
+            const end = atx ? withSpace(ref.to) : ref.to;
+            const found = parent
+              .getChildren('HeaderMark')
+              .some((m) => overlaps(m.from, atx ? withSpace(m.to) : m.to));
+            hideOrDim(touches(parent.from, parent.to) || found, ref.from, end);
             return;
           }
 
@@ -166,7 +183,10 @@ export function buildDecorations(
             return;
           case 'EmphasisMark':
           case 'StrikethroughMark':
-            if (parent) hideOrDim(touches(parent.from, parent.to), ref.from, ref.to);
+            if (parent) {
+              const found = childHit(parent, 'EmphasisMark', 'StrikethroughMark');
+              hideOrDim(touches(parent.from, parent.to) || found, ref.from, ref.to);
+            }
             return;
 
           case 'InlineCode':
@@ -177,8 +197,9 @@ export function buildDecorations(
             lines('cm-md-codeblock', ref.from, ref.to);
             return;
           case 'CodeMark':
-            if (parent?.name === 'InlineCode') hideOrDim(touches(parent.from, parent.to), ref.from, ref.to);
-            else dim(ref.from, ref.to);
+            if (parent?.name === 'InlineCode') {
+              hideOrDim(touches(parent.from, parent.to) || childHit(parent, 'CodeMark'), ref.from, ref.to);
+            } else dim(ref.from, ref.to);
             return;
           case 'CodeInfo':
             dim(ref.from, ref.to);
@@ -191,14 +212,18 @@ export function buildDecorations(
           case 'LinkTitle':
           case 'URL':
             // Only inside [text](url); autolinks <https://…> stay visible
-            if (parent?.name === 'Link') hideOrDim(touches(parent.from, parent.to), ref.from, ref.to);
+            if (parent?.name === 'Link') {
+              const found = childHit(parent, 'LinkMark', 'LinkTitle', 'URL');
+              hideOrDim(touches(parent.from, parent.to) || found, ref.from, ref.to);
+            }
             return;
 
           case 'Image': {
             const m = /^!\[([^\]]*)\]\(\s*<?([^)\s>]+)/.exec(doc.sliceString(ref.from, ref.to));
             if (!m) return;
             const widget = new ImageWidget(resolveImage(m[2]), m[1]);
-            if (touches(ref.from, ref.to)) {
+            // All of an image's markdown is hidden behind the picture, so any match in it shows it
+            if (touches(ref.from, ref.to) || overlaps(ref.from, ref.to)) {
               dim(ref.from, ref.to);
               add(Decoration.widget({ widget, side: 1 }), ref.to);
             } else {
@@ -211,14 +236,20 @@ export function buildDecorations(
             lines('cm-md-quote', ref.from, ref.to);
             return;
           case 'QuoteMark':
-            hideOrDim(lineActive(ref.from), ref.from, withSpace(ref.to));
+            hideOrDim(
+              lineActive(ref.from) || overlaps(ref.from, withSpace(ref.to)),
+              ref.from,
+              withSpace(ref.to),
+            );
             return;
 
           case 'ListMark': {
             const list = parent?.parent;
-            if (!parent || list?.name !== 'BulletList' || lineActive(ref.from)) {
+            const task = parent?.getChild('Task');
+            const revealed = overlaps(ref.from, task ? withSpace(ref.to) : ref.to);
+            if (!parent || list?.name !== 'BulletList' || lineActive(ref.from) || revealed) {
               add(mark('cm-md-listmark'), ref.from, ref.to);
-            } else if (parent.getChild('Task')) {
+            } else if (task) {
               hide(ref.from, withSpace(ref.to));
             } else {
               add(Decoration.replace({ widget: new BulletWidget() }), ref.from, ref.to);
@@ -231,7 +262,7 @@ export function buildDecorations(
             }
             return;
           case 'TaskMarker': {
-            if (lineActive(ref.from)) {
+            if (lineActive(ref.from) || overlaps(ref.from, ref.to)) {
               dim(ref.from, ref.to);
               return;
             }
@@ -241,7 +272,7 @@ export function buildDecorations(
           }
 
           case 'HorizontalRule':
-            if (lineActive(ref.from)) {
+            if (lineActive(ref.from) || overlaps(ref.from, ref.to)) {
               dim(ref.from, ref.to);
             } else {
               lines('cm-md-hr', ref.from, ref.from);
@@ -257,7 +288,7 @@ export function buildDecorations(
             return;
 
           case 'Escape':
-            hideOrDim(lineActive(ref.from), ref.from, ref.from + 1);
+            hideOrDim(lineActive(ref.from) || overlaps(ref.from, ref.from + 1), ref.from, ref.from + 1);
             return;
         }
       },
@@ -267,11 +298,16 @@ export function buildDecorations(
 }
 
 export function hybridMarkdown(opts: HybridOptions = {}) {
+  const build = (state: EditorState, view: EditorView) =>
+    buildDecorations(state, syntaxTree(state), view.visibleRanges, {
+      ...opts,
+      reveal: revealRanges(state, view.visibleRanges),
+    });
   return ViewPlugin.fromClass(
     class {
       decorations: DecorationSet;
       constructor(view: EditorView) {
-        this.decorations = buildDecorations(view.state, syntaxTree(view.state), view.visibleRanges, opts);
+        this.decorations = build(view.state, view);
       }
       update(u: ViewUpdate) {
         if (
@@ -280,9 +316,11 @@ export function hybridMarkdown(opts: HybridOptions = {}) {
           u.selectionSet ||
           // Entering or leaving Reading Mode is a reconfiguration, none of the above
           u.startState.facet(readingMode) !== u.state.facet(readingMode) ||
+          // The search opened or closed, or its query changed: matches reveal markers
+          searchStateChanged(u.startState, u.state) ||
           syntaxTree(u.startState) !== syntaxTree(u.state)
         ) {
-          this.decorations = buildDecorations(u.state, syntaxTree(u.state), u.view.visibleRanges, opts);
+          this.decorations = build(u.state, u.view);
         }
       }
     },

@@ -5,6 +5,16 @@ import { createBar } from './bar';
 import { dropIncoming, hasIncoming } from './editor/incoming';
 import { mergeChanges } from './editor/merge';
 import { reloadTransaction } from './editor/reload';
+import {
+  findNext,
+  findPrevious,
+  openFind,
+  openReplace,
+  panelHeight,
+  rebuildingPanel,
+  scrollShift,
+  searchPanelOpen,
+} from './editor/search';
 import { createState, readingModeEffect } from './editor/setup';
 import { basename, resolveRelative } from './paths';
 import type { Platform } from './platform/types';
@@ -102,12 +112,23 @@ function applyReading() {
   const block = view.lineBlockAtHeight(top);
   const text = view.coordsAtPos(block.from);
   const inset = text ? text.top - view.documentTop - block.top : 0;
-  view.dispatch({
-    effects: [
-      readingModeEffect({ reading, join: prefs.readingJoin }),
-      EditorView.scrollIntoView(block.from, { y: 'start', yMargin: inset - (top - block.top) }),
-    ],
-  });
+  const margin = inset - (top - block.top);
+  const mode = readingModeEffect({ reading, join: prefs.readingJoin });
+  if (searchPanelOpen(view.state)) {
+    // The panel is built again for the new mode (it has a replace field only while editing), so
+    // its height changes, and that moves the text too. CodeMirror applies a scroll target after
+    // everything else, so the panel's own compensation would be overridden: include it in the margin
+    const before = panelHeight(view);
+    rebuildingPanel(view, () => view.dispatch({ effects: mode }));
+    const shift = scrollShift(view, panelHeight(view) - before);
+    view.dispatch({
+      effects: EditorView.scrollIntoView(block.from, { y: 'start', yMargin: margin - shift }),
+    });
+  } else {
+    view.dispatch({
+      effects: [mode, EditorView.scrollIntoView(block.from, { y: 'start', yMargin: margin })],
+    });
+  }
   view.focus();
 }
 
@@ -402,6 +423,10 @@ const actions = {
   // While reading both commands refuse (the document is read-only): say why
   undo: () => undo(view) || (reading && readOnlyNotice()),
   redo: () => redo(view) || (reading && readOnlyNotice()),
+  find: () => openFind(view),
+  findNext: () => findNext(view),
+  findPrevious: () => findPrevious(view),
+  replace: () => openReplace(view),
   setTheme(theme: ThemePref) {
     prefs = savePrefs({ theme });
     applyAppearance(prefs);
